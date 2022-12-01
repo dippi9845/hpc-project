@@ -14,12 +14,16 @@
 # Last modified on 2022-11-27 by Moreno Marzolla
 
 EXE:=sph sph.gui
-CFLAGS+=-std=c99 -Wall -Wpedantic -fopenmp
+CFLAGS+=-std=c99 -Wall -Wpedantic
 LDLIBS=-lm
 
 .PHONY: clean
 
 sph: sph.c
+	gcc sph.c $(CFLAGS) $(LDLIBS) -o bin/sph
+
+omp: sph-omp.c
+	gcc sph-omp.c $(CFLAGS) $(LDLIBS) -fopenmp -o bin/sph-omp
 
 gui: sph.gui
 

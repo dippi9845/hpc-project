@@ -14,7 +14,7 @@
 # Last modified on 2022-11-27 by Moreno Marzolla
 
 EXE:=sph sph.gui
-CFLAGS+=-std=c99 -Wall -Wpedantic
+CFLAGS+=-std=c99 -Wall -Wpedantic -fopenmp
 LDLIBS=-lm
 
 .PHONY: clean

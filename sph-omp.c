@@ -175,7 +175,7 @@ void compute_density_pressure( void )
        et al. */
     const float POLY6 = 4.0 / (M_PI * pow(H, 8));
     
-    #pragma omp parallel for collapse(2)
+    #pragma omp parallel for
     for (int i=0; i<n_particles; i++) {
         particle_t *pi = &particles[i];
         pi->rho = 0.0;
@@ -203,7 +203,7 @@ void compute_forces( void )
     const float VISC_LAP = 40.0 / (M_PI * pow(H, 5));
     const float EPS = 1e-6;
 
-    #pragma omp parallel for collapse(2)
+    #pragma omp parallel for
     for (int i=0; i<n_particles; i++) {
         particle_t *pi = &particles[i];
         float fpress_x = 0.0, fpress_y = 0.0;

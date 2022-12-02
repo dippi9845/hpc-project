@@ -28,6 +28,8 @@
  * SOFTWARE.
  *
  ****************************************************************************/
+#include "hpc.h"
+
 #ifdef GUI
 #if __APPLE__
 #include <GLUT/glut.h>
@@ -41,7 +43,6 @@
 #include <math.h>
 #include <assert.h>
 #include <omp.h>
-#include "hpc.h"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846

@@ -1,0 +1,4 @@
+OMP:
+    1 - provato la varsione con un unico loop
+    2 - versione con 4 thread pool
+    3 - versione con 1/2 thread pool

@@ -267,6 +267,19 @@ void integrate( size_t start, size_t end, size_t step )
     }
 }
 
+float avg_velocities( void )
+{
+    double result = 0.0;
+    #pragma omp parallel for reduction(+:result)
+    for (int i=0; i<n_particles; i++) {
+        /* the hypot(x,y) function is equivalent to sqrt(x*x +
+           y*y); */
+        result += hypot(particles[i].vx, particles[i].vy) / n_particles;
+    }
+    return result;
+}
+
+
 #ifdef GUI
 /**
  ** GUI-specific functions. You can enable the GUI by compiling this
@@ -404,7 +417,7 @@ int main(int argc, char **argv)
     //double st = hpc_gettime();
     for (int s=0; s<nsteps; s++) {
         
-        #pragma omp parallel default(none) reduction(+:avg) shared(n_particles, particles)
+        #pragma omp parallel default(none) shared(n_particles, particles)
         {
             const size_t my_id = omp_get_thread_num();
             const size_t num_threads = omp_get_num_threads();
@@ -423,7 +436,7 @@ int main(int argc, char **argv)
             if it is not shown (to ensure constant workload per
             iteration) */
         }
-        const float avg = ;
+        const float avg = avg_velocities();
         if (s % 10 == 0)
             printf("step %5d, avgV=%f\n", s, avg);
     }

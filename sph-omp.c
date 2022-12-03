@@ -267,18 +267,38 @@ void integrate( size_t start, size_t end, size_t step )
     }
 }
 
-float avg_velocities( void )
-{
-    double result = 0.0;
-    #pragma omp parallel for reduction(+:result)
-    for (int i=0; i<n_particles; i++) {
-        /* the hypot(x,y) function is equivalent to sqrt(x*x +
-           y*y); */
-        result += hypot(particles[i].vx, particles[i].vy) / n_particles;
-    }
-    return result;
-}
+float update( void ) {
+    double avg = 0.f;
 
+    #pragma omp parallel default(none) shared(n_particles, particles) reduction(+:avg)
+    {
+        const size_t my_id = omp_get_thread_num();
+        const size_t num_threads = omp_get_num_threads();
+        const size_t my_start = (n_particles*my_id)/num_threads;
+        const size_t my_end = (n_particles*(my_id+1))/num_threads;
+        const size_t my_step = 1;
+
+        compute_density_pressure(my_start, my_end, my_step);
+        
+        #pragma omp barrier
+        compute_forces(my_start, my_end, my_step);
+
+        #pragma omp barrier
+        integrate(my_start, my_end, my_step);
+        /* the average velocities MUST be computed at each step, even
+        if it is not shown (to ensure constant workload per
+        iteration) */
+
+        //#pragma omp barrier
+        for (int i = my_start; i < my_end; i += my_step) {
+            /* the hypot(x,y) function is equivalent to sqrt(x*x +
+            y*y); */
+            avg += hypot(particles[i].vx, particles[i].vy) / n_particles;
+        }
+    }
+
+    return avg;
+}
 
 #ifdef GUI
 /**
@@ -414,33 +434,15 @@ int main(int argc, char **argv)
     }
 
     init_sph(n);
-    //double st = hpc_gettime();
+    double st = hpc_gettime();
     for (int s=0; s<nsteps; s++) {
         
-        #pragma omp parallel default(none) shared(n_particles, particles)
-        {
-            const size_t my_id = omp_get_thread_num();
-            const size_t num_threads = omp_get_num_threads();
-            const size_t my_start = (n_particles*my_id)/num_threads;
-            const size_t my_end = (n_particles*(my_id+1))/num_threads;
-            const size_t my_step = 1;
+        const float avg = update();
 
-            compute_density_pressure(my_start, my_end, my_step);
-            
-            #pragma omp barrier
-            compute_forces(my_start, my_end, my_step);
-
-            #pragma omp barrier
-            integrate(my_start, my_end, my_step);
-            /* the average velocities MUST be computed at each step, even
-            if it is not shown (to ensure constant workload per
-            iteration) */
-        }
-        const float avg = avg_velocities();
         if (s % 10 == 0)
             printf("step %5d, avgV=%f\n", s, avg);
     }
-    //printf("time elapsed: %f\n", hpc_gettime() - st);
+    printf("time elapsed: %f\n", hpc_gettime() - st);
 #endif
     free(particles);
     return EXIT_SUCCESS;

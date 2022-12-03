@@ -401,10 +401,9 @@ int main(int argc, char **argv)
     }
 
     init_sph(n);
-    double st = hpc_gettime();
+    //double st = hpc_gettime();
     for (int s=0; s<nsteps; s++) {
-
-        float avg = 0.f;
+        
         #pragma omp parallel default(none) reduction(+:avg) shared(n_particles, particles)
         {
             const size_t my_id = omp_get_thread_num();
@@ -423,16 +422,12 @@ int main(int argc, char **argv)
             /* the average velocities MUST be computed at each step, even
             if it is not shown (to ensure constant workload per
             iteration) */
-            #pragma omp barrier
-            for (size_t i = my_start; i < my_end; i += my_step) {
-                avg += hypot(particles[i].vx, particles[i].vy) / n_particles;
-            }
         }
-        
+        const float avg = ;
         if (s % 10 == 0)
             printf("step %5d, avgV=%f\n", s, avg);
     }
-    printf("time elapsed: %f\n", hpc_gettime() - st);
+    //printf("time elapsed: %f\n", hpc_gettime() - st);
 #endif
     free(particles);
     return EXIT_SUCCESS;

@@ -1,4 +1,4 @@
 OMP:
     1 - provato la varsione con un unico loop
     2 - versione con 4 thread pool (-> ci sono istanze < 80 che la versione seriale fa più in fretta)
-    3 - versione con 1/2 thread pool ( 1 - cè la problematica del fatto che la media va calcolata in una funzione a parte, 2 - instanze in cui la versione seriale è più veloce)
+    3 - versione con 1/2 thread pool ( 1 - cè la problematica del fatto che la media va calcolata in una funzione a parte, 1.5 -> spiegare perchè la barrier non serve, 2 - instanze in cui la versione seriale è più veloce)

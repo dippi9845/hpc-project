@@ -405,9 +405,13 @@ int main(int argc, char **argv)
     for (int s=0; s<nsteps; s++) {
 
         float avg = 0.f;
-        #pragma omp parallel default(none) reduction(+:avg)
+        #pragma omp parallel default(none) reduction(+:avg) shared(n_particles, particles)
         {
-            size_t my_start, my_end, my_step;
+            const size_t my_id = omp_get_thread_num();
+            const size_t num_threads = omp_get_num_threads();
+            const size_t my_start = (n_particles*my_id)/num_threads;
+            const size_t my_end = (n_particles*(my_id+1))/num_threads;
+            const size_t my_step = 1;
 
             compute_density_pressure(my_start, my_end, my_step);
             

@@ -8,3 +8,8 @@ OMP:
             2 - instanze in cui la versione seriale è più veloce
         )
     4 - si potrebbe provare a far creare solo un pool di thread con il master e distruggendo il ciclo for
+
+SIMD:
+    1 - come ho organizzato i dati
+    2 - parallelizzato con un vector di 16 byte solo la pressure
+    2.1 - parallelizzato con un vecetor di 32 byte solo la pressure

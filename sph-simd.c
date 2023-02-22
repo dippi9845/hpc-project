@@ -368,6 +368,15 @@ int main(int argc, char **argv)
 
     //assert( particles != NULL );
 
+    pos_x = (float *) malloc(MAX_PARTICLES * sizeof(float)); assert( pos_x != NULL );
+    pos_y = (float *) malloc(MAX_PARTICLES * sizeof(float)); assert( pos_y != NULL );
+    vx = (float *) malloc(MAX_PARTICLES * sizeof(float)); assert( vx != NULL );
+    vy = (float *) malloc(MAX_PARTICLES * sizeof(float)); assert( vy != NULL );
+    fx = (float *) malloc(MAX_PARTICLES * sizeof(float)); assert( fx != NULL );
+    fy = (float *) malloc(MAX_PARTICLES * sizeof(float)); assert( fy != NULL );
+    rho = (float *) malloc(MAX_PARTICLES * sizeof(float)); assert( rho != NULL );
+    p = (float *) malloc(MAX_PARTICLES * sizeof(float)); assert( p != NULL );
+
     // TODO: alloca la merda
 
     int n = DAM_PARTICLES;
@@ -412,6 +421,6 @@ int main(int argc, char **argv)
             printf("step %5d, avgV=%f\n", s, avg);
     }
 
-    free(particles);
+    //free(particles);
     return EXIT_SUCCESS;
 }

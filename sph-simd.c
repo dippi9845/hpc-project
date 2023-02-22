@@ -72,6 +72,9 @@ float *near_press_y = (float *) malloc(MAX_PARTICLES * sizeof(float));
 float *near_visc_x = (float *) malloc(MAX_PARTICLES * sizeof(float));
 float *near_visc_x = (float *) malloc(MAX_PARTICLES * sizeof(float));
 
+typedef float v4f __attribute__ ((vector_size (16)));
+#define VLEN (sizeof(v4f) /sizeof(float))
+
 /* Particle data structure; stores position, velocity, and force for
    integration stores density (rho) and pressure values for SPH.
 
@@ -167,7 +170,6 @@ void compute_density_pressure( void ) {
         particle_t *pi = &particles[i];
         pi->rho = 0.0;
         int near = 0;
-
         for (int j=0; j<n_particles; j++) {
             const particle_t *pj = &particles[j];
 
@@ -184,6 +186,18 @@ void compute_density_pressure( void ) {
         /* evaluate rho 
             pi->rho += MASS * POLY6 * pow(HSQ - d2, 3.0);
         */
+        v4f acc = {0.0, 0.0, 0.0, 0.0};
+        v4f *vv = (v4f*)near_rho;
+        int j;
+        for (j = 0; j < near - VLEN + 1; i+= VLEN) {
+            acc += *vv;
+            vv++;
+        }
+        pi->rho = acc[0] + acc[1] + acc[2] + acc[3];
+        for (; j < near; j++) {
+            pi->rho += near_rho[j];
+        }
+        /* end of simd computation */
         pi->p = GAS_CONST * (pi->rho - REST_DENS);
     }
 }

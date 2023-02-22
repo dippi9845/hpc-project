@@ -155,8 +155,7 @@ void init_sph( int n )
  ** You may parallelize the following four functions
  **/
 
-void compute_density_pressure( void )
-{
+void compute_density_pressure( void ) {
     const float HSQ = H * H;    // radius^2 for optimization
 
     /* Smoothing kernels defined in Muller and their gradients adapted
@@ -186,6 +185,7 @@ void compute_density_pressure( void )
             pi->rho += MASS * POLY6 * pow(HSQ - d2, 3.0);
         */
         pi->p = GAS_CONST * (pi->rho - REST_DENS);
+    }
 }
 
 void compute_forces( void )

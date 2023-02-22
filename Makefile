@@ -13,10 +13,11 @@
 #
 # Last modified on 2022-11-27 by Moreno Marzolla
 
-EXE:=sph sph-omp.c
+EXE:=sph sph-omp
 CFLAGS+=-std=c99 -Wall -Wpedantic
 LDLIBS=-lm
 OPM_FLAG=-fopenmp
+SIMD_FLAG=-march=native -O2 -ftree-vectorize -fopt-info-vec -funsafe-math-optimizations
 
 .PHONY: clean
 
@@ -27,6 +28,9 @@ sph: sph.c
 
 omp: sph-omp.c
 	gcc sph-omp.c $(CFLAGS) $(LDLIBS) $(OPM_FLAG) -o bin/sph-omp
+
+simd: sph-simd.c
+	gcc -g sph-simd.c $(CFLAGS) $(LDLIBS) $(SIMD_FLAG) -o bin/sph-simd
 
 clean:
 	\rm -f $(EXE) *.o *~

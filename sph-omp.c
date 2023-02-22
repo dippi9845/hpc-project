@@ -30,14 +30,6 @@
  ****************************************************************************/
 #include "hpc.h"
 
-#ifdef GUI
-#if __APPLE__
-#include <GLUT/glut.h>
-#else
-#include <GL/glut.h>
-#endif
-#endif
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -65,20 +57,12 @@ const float BOUND_DAMPING = -0.5;
 // (the following ought to be "const float", but then the compiler
 // would give an error because VIEW_WIDTH and VIEW_HEIGHT are
 // initialized with non-literal expressions)
-#ifdef GUI
-
-const int MAX_PARTICLES = 5000;
-#define WINDOW_WIDTH 1024
-#define WINDOW_HEIGHT 768
-
-#else
 
 const int MAX_PARTICLES = 20000;
 // Larger window size to accommodate more particles
 #define WINDOW_WIDTH 3000
 #define WINDOW_HEIGHT 2000
 
-#endif
 
 const int DAM_PARTICLES = 500;
 

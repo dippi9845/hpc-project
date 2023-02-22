@@ -267,6 +267,19 @@ void integrate( size_t start, size_t end, size_t step )
     }
 }
 
+
+float avg_velocities( size_t start, size_t end, size_t step )
+{
+    double result = 0.0;
+    for (size_t i = start; i < end; i += step) {
+        /* the hypot(x,y) function is equivalent to sqrt(x*x +
+           y*y); */
+        result += hypot(particles[i].vx, particles[i].vy) / n_particles;
+    }
+    return result;
+}
+
+
 float update( void ) {
     double avg = 0.f;
 
@@ -289,12 +302,7 @@ float update( void ) {
         if it is not shown (to ensure constant workload per
         iteration) */
 
-        //#pragma omp barrier
-        for (int i = my_start; i < my_end; i += my_step) {
-            /* the hypot(x,y) function is equivalent to sqrt(x*x +
-            y*y); */
-            avg += hypot(particles[i].vx, particles[i].vy) / n_particles;
-        }
+        avg = avg_velocities(my_start, my_end, my_step);
     }
 
     return avg;

@@ -66,11 +66,11 @@ const int DAM_PARTICLES = 500;
 const float VIEW_WIDTH = 1.5 * WINDOW_WIDTH;
 const float VIEW_HEIGHT = 1.5 * WINDOW_HEIGHT;
 
-float *near_rho = (float *) malloc(MAX_PARTICLES * sizeof(float));
-float *near_press_x = (float *) malloc(MAX_PARTICLES * sizeof(float));
-float *near_press_y = (float *) malloc(MAX_PARTICLES * sizeof(float));
-float *near_visc_x = (float *) malloc(MAX_PARTICLES * sizeof(float));
-float *near_visc_x = (float *) malloc(MAX_PARTICLES * sizeof(float));
+float *near_rho;
+float *near_press_x;
+float *near_press_y;
+float *near_visc_x;
+float *near_visc_x;
 
 typedef float v4f __attribute__ ((vector_size (16)));
 #define VLEN (sizeof(v4f) /sizeof(float))
@@ -165,11 +165,12 @@ void compute_density_pressure( void ) {
        to 2D per "SPH Based Shallow Water Simulation" by Solenthaler
        et al. */
     const float POLY6 = 4.0 / (M_PI * pow(H, 8));
+    int near;
 
     for (int i=0; i<n_particles; i++) {
         particle_t *pi = &particles[i];
         pi->rho = 0.0;
-        int near = 0;
+        near = 0;
         for (int j=0; j<n_particles; j++) {
             const particle_t *pj = &particles[j];
 
@@ -186,17 +187,28 @@ void compute_density_pressure( void ) {
         /* evaluate rho 
             pi->rho += MASS * POLY6 * pow(HSQ - d2, 3.0);
         */
-        v4f acc = {0.0, 0.0, 0.0, 0.0};
-        v4f *vv = (v4f*)near_rho;
-        int j;
-        for (j = 0; j < near - VLEN + 1; i+= VLEN) {
-            acc += *vv;
-            vv++;
+        int index = 0;
+        
+        if (near > VLEN) {
+            v4f acc = {0.0, 0.0, 0.0, 0.0};
+            v4f *vv = (v4f*)near_rho;
+
+            for (; index < near - VLEN + 1; index+= VLEN) {
+                acc += *vv;
+                vv++;
+            }
+            
+            pi->rho += acc[0];
+            pi->rho += acc[1];
+            pi->rho += acc[2];
+            pi->rho += acc[3];
+
         }
-        pi->rho = acc[0] + acc[1] + acc[2] + acc[3];
-        for (; j < near; j++) {
-            pi->rho += near_rho[j];
+        
+        for (; index < near; index++) {
+            pi->rho += near_rho[index];
         }
+        
         /* end of simd computation */
         pi->p = GAS_CONST * (pi->rho - REST_DENS);
     }
@@ -319,6 +331,15 @@ int main(int argc, char **argv)
         fprintf(stderr, "FATAL: the maximum number of particles is %d\n", MAX_PARTICLES);
         return EXIT_FAILURE;
     }
+
+    near_rho = malloc(n * sizeof(float));
+    assert(near_rho != NULL);
+    /*
+    near_press_x = malloc(n * sizeof(float));
+    near_press_y = malloc(n * sizeof(float));
+    near_visc_x = malloc(n * sizeof(float));
+    near_visc_x = malloc(n * sizeof(float));
+    */
 
     init_sph(n);
     for (int s=0; s<nsteps; s++) {

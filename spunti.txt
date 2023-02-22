@@ -16,3 +16,6 @@ SIMD:
 
 SIMD-OMP:
     1 - non più un'array ma una matrice
+    1.2 - dire che i vettori del gcc scombinano un po i conti
+    2 - la calusola di openmp non funziona
+    3 - proviamo con i low level sse

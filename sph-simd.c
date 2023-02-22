@@ -165,12 +165,12 @@ void compute_density_pressure( void ) {
        to 2D per "SPH Based Shallow Water Simulation" by Solenthaler
        et al. */
     const float POLY6 = 4.0 / (M_PI * pow(H, 8));
-    int near;
+    
 
     for (int i=0; i<n_particles; i++) {
         particle_t *pi = &particles[i];
         pi->rho = 0.0;
-        near = 0;
+        int near = 0;
         for (int j=0; j<n_particles; j++) {
             const particle_t *pj = &particles[j];
 

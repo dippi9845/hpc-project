@@ -33,7 +33,7 @@ simd: sph-simd.c
 	gcc sph-simd.c $(CFLAGS) $(LDLIBS) $(SIMD_FLAG) -o bin/sph-simd
 
 omp-simd: sph-omp-simd.c
-	gcc sph-simd.c $(CFLAGS) $(LDLIBS) $(SIMD_FLAG) $(OPM_FLAG) -o bin/sph-simd
+	gcc -g sph-omp-simd.c $(CFLAGS) $(LDLIBS) $(SIMD_FLAG) $(OPM_FLAG) -o bin/sph-omp-simd
 
 clean:
 	\rm -f $(EXE) *.o *~

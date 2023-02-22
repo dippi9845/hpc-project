@@ -7,3 +7,4 @@ OMP:
             1.5 -> spiegare perchè la barrier non serve ( perchè tanto una volta finita la computazione ogni core calcola le sue particelle, e non quelle degli altri),
             2 - instanze in cui la versione seriale è più veloce
         )
+    4 - si potrebbe provare a far creare solo un pool di thread con il master e distruggendo il ciclo for

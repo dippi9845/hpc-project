@@ -78,6 +78,8 @@ float *near_visc_y;
 typedef float v4f __attribute__ ((vector_size (16)));
 #define VLEN (sizeof(v4f) /sizeof(float))
 
+size_t particles_num;
+
 /* Particle data structure; stores position, velocity, and force for
    integration stores density (rho) and pressure values for SPH.
 
@@ -161,7 +163,7 @@ void init_sph( int n )
  ** You may parallelize the following four functions
  **/
 
-void compute_density_pressure( size_t start, size_t end, size_t step )
+void compute_density_pressure( size_t start, size_t end, size_t step, size_t my_id)
 {
     const float HSQ = H * H;    // radius^2 for optimization
 
@@ -182,7 +184,8 @@ void compute_density_pressure( size_t start, size_t end, size_t step )
             const float d2 = dx*dx + dy*dy;
 
             if (d2 < HSQ) {
-                near_rho[near] = MASS * POLY6 * pow(HSQ - d2, 3.0);
+                //printf("density %u\n", my_id);
+                near_rho[near + particles_num * my_id] = MASS * POLY6 * pow(HSQ - d2, 3.0);
                 near++;
             }
         }
@@ -207,7 +210,7 @@ void compute_density_pressure( size_t start, size_t end, size_t step )
         }
         
         for (; index < near; index++) {
-            pi->rho += near_rho[index];
+            pi->rho += near_rho[index + particles_num * my_id];
         }
         
         /* end of simd computation */
@@ -215,7 +218,7 @@ void compute_density_pressure( size_t start, size_t end, size_t step )
     }
 }
 
-void compute_forces( size_t start, size_t end, size_t step )
+void compute_forces( size_t start, size_t end, size_t step, size_t my_id)
 {
     /* Smoothing kernels defined in Muller and their gradients adapted
        to 2D per "SPH Based Shallow Water Simulation" by Solenthaler
@@ -241,14 +244,15 @@ void compute_forces( size_t start, size_t end, size_t step )
             const float dist = hypotf(dx, dy) + EPS; // avoids division by zero later on
 
             if (dist < H) {
+                //printf("pressure... %u\n", my_id);
                 const float norm_dx = dx / dist;
                 const float norm_dy = dy / dist;
                 // compute pressure force contribution
-                near_press_x[near] = -norm_dx * MASS * (pi->p + pj->p) / (2 * pj->rho) * SPIKY_GRAD * pow(H - dist, 3);
-                near_press_y[near] = -norm_dy * MASS * (pi->p + pj->p) / (2 * pj->rho) * SPIKY_GRAD * pow(H - dist, 3);
+                near_press_x[near + particles_num * my_id] = -norm_dx * MASS * (pi->p + pj->p) / (2 * pj->rho) * SPIKY_GRAD * pow(H - dist, 3);
+                near_press_y[near + particles_num * my_id] = -norm_dy * MASS * (pi->p + pj->p) / (2 * pj->rho) * SPIKY_GRAD * pow(H - dist, 3);
                 // compute viscosity force contribution
-                near_visc_x[near] = VISC * MASS * (pj->vx - pi->vx) / pj->rho * VISC_LAP * (H - dist);
-                near_visc_y[near] = VISC * MASS * (pj->vy - pi->vy) / pj->rho * VISC_LAP * (H - dist);
+                near_visc_x[near + particles_num * my_id] = VISC * MASS * (pj->vx - pi->vx) / pj->rho * VISC_LAP * (H - dist);
+                near_visc_y[near + particles_num * my_id] = VISC * MASS * (pj->vy - pi->vy) / pj->rho * VISC_LAP * (H - dist);
                 near++;
             }
         }
@@ -277,7 +281,6 @@ void compute_forces( size_t start, size_t end, size_t step )
             v4f *vv_visc_x = (v4f*)near_visc_x;
             v4f *vv_visc_y = (v4f*)near_visc_y;
 
-            // TODO: problemi di cache provare anche 4 loop separati
             for (; index < near - VLEN + 1; index+= VLEN) {
                 pres_x += *vv_press_x;
                 pres_y += *vv_press_y;
@@ -299,17 +302,17 @@ void compute_forces( size_t start, size_t end, size_t step )
 
         }
         */
-           
-        /* remaining of everything TODO: cache pure qua */
+        
         for (int index = 0; index < near; index++) {
-            fpress_x += near_press_x[index];
-            fpress_y += near_press_y[index];
-            fvisc_x += near_visc_x[index];
-            fvisc_y += near_visc_y[index];
+            fpress_x += near_press_x[index + particles_num * my_id];
+            fpress_y += near_press_y[index + particles_num * my_id];
+            fvisc_x += near_visc_x[index + particles_num * my_id];
+            fvisc_y += near_visc_y[index + particles_num * my_id];
         }
         /*-------------------------------------*/
 
         pi->fx = fpress_x + fvisc_x + fgrav_x;
+        pi->fy = fpress_y + fvisc_y + fgrav_y;
     }
 }
 
@@ -367,10 +370,10 @@ float update( void ) {
         const size_t my_end = (n_particles*(my_id+1))/num_threads;
         const size_t my_step = 1;
 
-        compute_density_pressure(my_start, my_end, my_step);
+        compute_density_pressure(my_start, my_end, my_step, my_id);
         
         #pragma omp barrier
-        compute_forces(my_start, my_end, my_step);
+        compute_forces(my_start, my_end, my_step, my_id);
 
         #pragma omp barrier
         integrate(my_start, my_end, my_step);
@@ -411,16 +414,16 @@ int main(int argc, char **argv)
         fprintf(stderr, "FATAL: the maximum number of particles is %d\n", MAX_PARTICLES);
         return EXIT_FAILURE;
     }
-
-    near_rho = malloc(n * sizeof(float)); assert(near_rho != NULL);
     
-    near_press_x = malloc(n * sizeof(float)); assert(near_press_x != NULL);
+    const int num_threads = omp_get_max_threads();
 
-    near_press_y = malloc(n * sizeof(float)); assert(near_press_y != NULL);
+    near_rho = (float *) malloc(num_threads * n * sizeof(float)); assert(near_rho != NULL);
+    near_press_x = (float *) malloc(num_threads * n * sizeof(float)); assert(near_press_x != NULL);
+    near_press_y = (float *) malloc(num_threads * n * sizeof(float)); assert(near_press_y != NULL);
+    near_visc_x = (float *) malloc(num_threads * n * sizeof(float)); assert(near_visc_x != NULL);
+    near_visc_y = (float *) malloc(num_threads * n * sizeof(float)); assert(near_visc_y != NULL);
 
-    near_visc_x = malloc(n * sizeof(float)); assert(near_visc_x != NULL);
-
-    near_visc_y = malloc(n * sizeof(float)); assert(near_visc_y != NULL);
+    particles_num = n;
 
     init_sph(n);
     double st = hpc_gettime();

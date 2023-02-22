@@ -13,6 +13,19 @@
             "externalConsole": false,
             "MIMode": "gdb",
             "preLaunchTask": "make-simd"
+        },
+        {
+            "name": "(gdb) Debug sph-omp-simd",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/bin/sph-omp-simd",
+            "args": ["20000"],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "preLaunchTask": "make-omp-simd"
         }
     ]
 }

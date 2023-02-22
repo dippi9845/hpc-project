@@ -258,9 +258,10 @@ void compute_forces( void )
         const float fgrav_x = Gx * MASS / pi->rho;
         const float fgrav_y = Gy * MASS / pi->rho;
 
-        int index = 0; // index for all simd operations
+        //int index = 0; // index for all simd operations
         
         /* if is possible to use simd ops */
+        /*
         if (near > VLEN) {
             //printf("press near : %d\n", near);
             v4f pres_x = {0.0, 0.0, 0.0, 0.0};
@@ -273,7 +274,7 @@ void compute_forces( void )
             v4f *vv_visc_x = (v4f*)near_visc_x;
             v4f *vv_visc_y = (v4f*)near_visc_y;
 
-            /* TODO: problemi di cache provare anche 4 loop separati */
+            // TODO: problemi di cache provare anche 4 loop separati
             for (; index < near - VLEN + 1; index+= VLEN) {
                 pres_x += *vv_press_x;
                 pres_y += *vv_press_y;
@@ -294,9 +295,10 @@ void compute_forces( void )
             fvisc_y = visc_y[0] + visc_y[1] + visc_y[2] + visc_y[3];
 
         }
-        
+        */
+           
         /* remaining of everything TODO: cache pure qua */
-        for (; index < near; index++) {
+        for (int index = 0; index < near; index++) {
             fpress_x += near_press_x[index];
             fpress_y += near_press_y[index];
             fvisc_x += near_visc_x[index];

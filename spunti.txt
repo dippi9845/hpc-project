@@ -13,3 +13,6 @@ SIMD:
     1 - come ho organizzato i dati
     2 - parallelizzato con un vector di 16 byte solo la pressure
     2.1 - parallelizzato con un vecetor di 32 byte solo la pressure
+
+SIMD-OMP:
+    1 - non più un'array ma una matrice

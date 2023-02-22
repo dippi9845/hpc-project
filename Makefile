@@ -13,26 +13,20 @@
 #
 # Last modified on 2022-11-27 by Moreno Marzolla
 
-EXE:=sph sph.gui
+EXE:=sph sph-omp.c
 CFLAGS+=-std=c99 -Wall -Wpedantic
 LDLIBS=-lm
+OPM_FLAG=-fopenmp
 
 .PHONY: clean
+
+all: $(EXE)
 
 sph: sph.c
 	gcc sph.c $(CFLAGS) $(LDLIBS) -o bin/sph
 
 omp: sph-omp.c
-	gcc sph-omp.c $(CFLAGS) $(LDLIBS) -fopenmp -o bin/sph-omp
-
-gui: sph.gui
-
-all: $(EXE)
-
-sph.gui: CFLAGS+=-DGUI
-sph.gui: LDLIBS+=-lglut -lGL -lX11
-sph.gui: sph.c
-	$(CC) $(CFLAGS) $< $(LDLIBS) -o $@
+	gcc sph-omp.c $(CFLAGS) $(LDLIBS) $(OPM_FLAG) -o bin/sph-omp
 
 clean:
 	\rm -f $(EXE) *.o *~

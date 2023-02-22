@@ -1,0 +1,18 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "(gdb) Debug sph-simd",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/bin/sph-simd",
+            "args": ["20000"],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "preLaunchTask": "make-simd"
+        }
+    ]
+}

@@ -66,6 +66,8 @@ const int DAM_PARTICLES = 500;
 const float VIEW_WIDTH = 1.5 * WINDOW_WIDTH;
 const float VIEW_HEIGHT = 1.5 * WINDOW_HEIGHT;
 
+#define PRINT_AVERANGE 10
+
 /* Particle data structure; stores position, velocity, and force for
    integration stores density (rho) and pressure values for SPH.
 
@@ -80,6 +82,9 @@ typedef struct {
 
 particle_t *particles;
 int n_particles = 0;    // number of currently active particles
+
+__device__ particle_t *d_particles;
+__device__ int d_n_particles;
 
 /**
  * Return a random value in [a, b]
@@ -149,7 +154,7 @@ void init_sph( int n )
  ** You may parallelize the following four functions
  **/
 
-void compute_density_pressure( void )
+__device__ void compute_density_pressure( void )
 {
     const float HSQ = H * H;    // radius^2 for optimization
 
@@ -159,10 +164,10 @@ void compute_density_pressure( void )
     const float POLY6 = 4.0 / (M_PI * pow(H, 8));
 
     for (int i=0; i<n_particles; i++) {
-        particle_t *pi = &particles[i];
+        particle_t *pi = &d_particles[i];
         pi->rho = 0.0;
-        for (int j=0; j<n_particles; j++) {
-            const particle_t *pj = &particles[j];
+        for (int j=0; j<d_n_particles; j++) {
+            const particle_t *pj = &d_particles[j];
 
             const float dx = pj->x - pi->x;
             const float dy = pj->y - pi->y;
@@ -176,7 +181,7 @@ void compute_density_pressure( void )
     }
 }
 
-void compute_forces( void )
+__device__ void compute_forces( void )
 {
     /* Smoothing kernels defined in Muller and their gradients adapted
        to 2D per "SPH Based Shallow Water Simulation" by Solenthaler
@@ -185,13 +190,13 @@ void compute_forces( void )
     const float VISC_LAP = 40.0 / (M_PI * pow(H, 5));
     const float EPS = 1e-6;
 
-    for (int i=0; i<n_particles; i++) {
-        particle_t *pi = &particles[i];
+    for (int i=0; i<d_n_particles; i++) {
+        particle_t *pi = &d_particles[i];
         float fpress_x = 0.0, fpress_y = 0.0;
         float fvisc_x = 0.0, fvisc_y = 0.0;
 
-        for (int j=0; j<n_particles; j++) {
-            const particle_t *pj = &particles[j];
+        for (int j=0; j<d_n_particles; j++) {
+            const particle_t *pj = &d_particles[j];
 
             if (pi == pj)
                 continue;
@@ -218,7 +223,7 @@ void compute_forces( void )
     }
 }
 
-void integrate( void )
+__device__ void integrate( void )
 {
     for (int i=0; i<n_particles; i++) {
         particle_t *p = &particles[i];
@@ -248,7 +253,7 @@ void integrate( void )
     }
 }
 
-float avg_velocities( void )
+__device__ float avg_velocities( void )
 {
     double result = 0.0;
     for (int i=0; i<n_particles; i++) {
@@ -259,11 +264,19 @@ float avg_velocities( void )
     return result;
 }
 
-void update( void )
+__device__ void update( void )
 {
     compute_density_pressure();
     compute_forces();
     integrate();
+}
+
+__global__ void step() {
+    update();
+    /* the average velocities MUST be computed at each step, even
+        if it is not shown (to ensure constant workload per
+        iteration) */
+    const float avg = avg_velocities();
 }
 
 int main(int argc, char **argv)
@@ -296,12 +309,10 @@ int main(int argc, char **argv)
 
     init_sph(n);
     for (int s=0; s<nsteps; s++) {
-        update();
-        /* the average velocities MUST be computed at each step, even
-           if it is not shown (to ensure constant workload per
-           iteration) */
-        const float avg = avg_velocities();
-        if (s % 10 == 0)
+        
+        float avg;
+
+        if (s % PRINT_AVERANGE == 0)
             printf("step %5d, avgV=%f\n", s, avg);
     }
     free(particles);

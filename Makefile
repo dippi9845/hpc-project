@@ -13,6 +13,7 @@
 #
 # Last modified on 2022-11-27 by Moreno Marzolla
 
+
 CFLAGS+=-std=c99 -Wall -Wpedantic
 LDLIBS=-lm
 OPM_FLAG=-fopenmp
@@ -35,7 +36,7 @@ omp-simd: sph-omp-simd.c
 	gcc sph-omp-simd.c $(CFLAGS) $(LDLIBS) $(SIMD_FLAG) $(OPM_FLAG) -o bin/sph-omp-simd
 
 cuda: sph-cuda.cu
-	nvcc sph-cuda.cu $(CFLAGS) $(LDLIBS) -o bin/sph-cuda
+	nvcc sph-cuda.cu $(LDLIBS) -o bin/sph-cuda
 
 clean:
 	\rm -f $(EXE) *.o *~

@@ -317,10 +317,10 @@ int main(int argc, char **argv)
 
     init_sph(n);
     cudaMalloc((void **) &d_particles, sizeof(particle_t) * MAX_PARTICLES);
-    cudaMemcpy(d_particles, &particles, sizeof(particle_t) * MAX_PARTICLES, cudaMemcpyHostToDevice);
+    cudaMemcpy(&d_particles, &particles, sizeof(particle_t) * MAX_PARTICLES, cudaMemcpyHostToDevice);
 
     cudaMalloc((void **) &d_n_particles, sizeof(int));
-    cudaMemcpy(d_n_particles, &n, sizeof(int), cudaMemcpyHostToDevice);
+    cudaMemcpy(&d_n_particles, &n, sizeof(int), cudaMemcpyHostToDevice);
     
     cudaMalloc((void **) &d_sums, sizeof(float) * (MAX_PARTICLES + BLKDIM - 1) / BLKDIM);
 

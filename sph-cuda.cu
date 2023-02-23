@@ -68,6 +68,8 @@ const float VIEW_HEIGHT = 1.5 * WINDOW_HEIGHT;
 
 #define PRINT_AVERANGE 10
 
+#define BLKDIM 1024
+
 /* Particle data structure; stores position, velocity, and force for
    integration stores density (rho) and pressure values for SPH.
 
@@ -154,7 +156,7 @@ void init_sph( int n )
  ** You may parallelize the following four functions
  **/
 
-__device__ void compute_density_pressure( void )
+__device__ void compute_density_pressure( int index_particle )
 {
     const float HSQ = H * H;    // radius^2 for optimization
 
@@ -163,25 +165,23 @@ __device__ void compute_density_pressure( void )
        et al. */
     const float POLY6 = 4.0 / (M_PI * pow(H, 8));
 
-    for (int i=0; i<n_particles; i++) {
-        particle_t *pi = &d_particles[i];
-        pi->rho = 0.0;
-        for (int j=0; j<d_n_particles; j++) {
-            const particle_t *pj = &d_particles[j];
+    particle_t *pi = &d_particles[index_particle];
+    pi->rho = 0.0;
+    for (int j=0; j<d_n_particles; j++) {
+        const particle_t *pj = &d_particles[j];
 
-            const float dx = pj->x - pi->x;
-            const float dy = pj->y - pi->y;
-            const float d2 = dx*dx + dy*dy;
+        const float dx = pj->x - pi->x;
+        const float dy = pj->y - pi->y;
+        const float d2 = dx*dx + dy*dy;
 
-            if (d2 < HSQ) {
-                pi->rho += MASS * POLY6 * pow(HSQ - d2, 3.0);
-            }
+        if (d2 < HSQ) {
+            pi->rho += MASS * POLY6 * pow(HSQ - d2, 3.0);
         }
-        pi->p = GAS_CONST * (pi->rho - REST_DENS);
     }
+    pi->p = GAS_CONST * (pi->rho - REST_DENS);
 }
 
-__device__ void compute_forces( void )
+__device__ void compute_forces( int index_particle )
 {
     /* Smoothing kernels defined in Muller and their gradients adapted
        to 2D per "SPH Based Shallow Water Simulation" by Solenthaler
@@ -190,94 +190,98 @@ __device__ void compute_forces( void )
     const float VISC_LAP = 40.0 / (M_PI * pow(H, 5));
     const float EPS = 1e-6;
 
-    for (int i=0; i<d_n_particles; i++) {
-        particle_t *pi = &d_particles[i];
-        float fpress_x = 0.0, fpress_y = 0.0;
-        float fvisc_x = 0.0, fvisc_y = 0.0;
+    particle_t *pi = &d_particles[index_particle];
+    float fpress_x = 0.0, fpress_y = 0.0;
+    float fvisc_x = 0.0, fvisc_y = 0.0;
 
-        for (int j=0; j<d_n_particles; j++) {
-            const particle_t *pj = &d_particles[j];
+    for (int j=0; j<d_n_particles; j++) {
+        const particle_t *pj = &d_particles[j];
 
-            if (pi == pj)
-                continue;
+        if (pi == pj)
+            continue;
 
-            const float dx = pj->x - pi->x;
-            const float dy = pj->y - pi->y;
-            const float dist = hypotf(dx, dy) + EPS; // avoids division by zero later on
+        const float dx = pj->x - pi->x;
+        const float dy = pj->y - pi->y;
+        const float dist = hypotf(dx, dy) + EPS; // avoids division by zero later on
 
-            if (dist < H) {
-                const float norm_dx = dx / dist;
-                const float norm_dy = dy / dist;
-                // compute pressure force contribution
-                fpress_x += -norm_dx * MASS * (pi->p + pj->p) / (2 * pj->rho) * SPIKY_GRAD * pow(H - dist, 3);
-                fpress_y += -norm_dy * MASS * (pi->p + pj->p) / (2 * pj->rho) * SPIKY_GRAD * pow(H - dist, 3);
-                // compute viscosity force contribution
-                fvisc_x += VISC * MASS * (pj->vx - pi->vx) / pj->rho * VISC_LAP * (H - dist);
-                fvisc_y += VISC * MASS * (pj->vy - pi->vy) / pj->rho * VISC_LAP * (H - dist);
-            }
-        }
-        const float fgrav_x = Gx * MASS / pi->rho;
-        const float fgrav_y = Gy * MASS / pi->rho;
-        pi->fx = fpress_x + fvisc_x + fgrav_x;
-        pi->fy = fpress_y + fvisc_y + fgrav_y;
-    }
-}
-
-__device__ void integrate( void )
-{
-    for (int i=0; i<n_particles; i++) {
-        particle_t *p = &particles[i];
-        // forward Euler integration
-        p->vx += DT * p->fx / p->rho;
-        p->vy += DT * p->fy / p->rho;
-        p->x += DT * p->vx;
-        p->y += DT * p->vy;
-
-        // enforce boundary conditions
-        if (p->x - EPS < 0.0) {
-            p->vx *= BOUND_DAMPING;
-            p->x = EPS;
-        }
-        if (p->x + EPS > VIEW_WIDTH) {
-            p->vx *= BOUND_DAMPING;
-            p->x = VIEW_WIDTH - EPS;
-        }
-        if (p->y - EPS < 0.0) {
-            p->vy *= BOUND_DAMPING;
-            p->y = EPS;
-        }
-        if (p->y + EPS > VIEW_HEIGHT) {
-            p->vy *= BOUND_DAMPING;
-            p->y = VIEW_HEIGHT - EPS;
+        if (dist < H) {
+            const float norm_dx = dx / dist;
+            const float norm_dy = dy / dist;
+            // compute pressure force contribution
+            fpress_x += -norm_dx * MASS * (pi->p + pj->p) / (2 * pj->rho) * SPIKY_GRAD * pow(H - dist, 3);
+            fpress_y += -norm_dy * MASS * (pi->p + pj->p) / (2 * pj->rho) * SPIKY_GRAD * pow(H - dist, 3);
+            // compute viscosity force contribution
+            fvisc_x += VISC * MASS * (pj->vx - pi->vx) / pj->rho * VISC_LAP * (H - dist);
+            fvisc_y += VISC * MASS * (pj->vy - pi->vy) / pj->rho * VISC_LAP * (H - dist);
         }
     }
+    const float fgrav_x = Gx * MASS / pi->rho;
+    const float fgrav_y = Gy * MASS / pi->rho;
+    pi->fx = fpress_x + fvisc_x + fgrav_x;
+    pi->fy = fpress_y + fvisc_y + fgrav_y;
 }
 
-__device__ float avg_velocities( void )
+__device__ void integrate( int index_particle )
 {
-    double result = 0.0;
-    for (int i=0; i<n_particles; i++) {
-        /* the hypot(x,y) function is equivalent to sqrt(x*x +
-           y*y); */
-        result += hypot(particles[i].vx, particles[i].vy) / n_particles;
+    particle_t *p = &particles[index_particle];
+    // forward Euler integration
+    p->vx += DT * p->fx / p->rho;
+    p->vy += DT * p->fy / p->rho;
+    p->x += DT * p->vx;
+    p->y += DT * p->vy;
+
+    // enforce boundary conditions
+    if (p->x - EPS < 0.0) {
+        p->vx *= BOUND_DAMPING;
+        p->x = EPS;
     }
-    return result;
-}
-
-__device__ void update( void )
-{
-    compute_density_pressure();
-    compute_forces();
-    integrate();
+    if (p->x + EPS > VIEW_WIDTH) {
+        p->vx *= BOUND_DAMPING;
+        p->x = VIEW_WIDTH - EPS;
+    }
+    if (p->y - EPS < 0.0) {
+        p->vy *= BOUND_DAMPING;
+        p->y = EPS;
+    }
+    if (p->y + EPS > VIEW_HEIGHT) {
+        p->vy *= BOUND_DAMPING;
+        p->y = VIEW_HEIGHT - EPS;
+    }
 }
 
 __global__ void step() {
-    update();
-    /* the average velocities MUST be computed at each step, even
-        if it is not shown (to ensure constant workload per
-        iteration) */
-    const float avg = avg_velocities();
+
+    int index = threadIdx.x + blockIdx.x * blockDim.x;
+
+    compute_density_pressure(index);
+    __syncthreads();
+
+    compute_forces(index);
+    __syncthreads();
+
+    integrate(index);
+
+    __shared__ float temp[BLKDIM];
+    const int lindex = threadIdx.x;
+    const int bindex = blockIdx.x;
+    const int gindex = threadIdx.x + blockIdx.x * blockDim.x;
+    int bsize = blockDim.x / 2;
+    temp[lindex] = hypot(d_particles[index].vx, d_particles[index].vy) / d_n_particles;
+    
+    __syncthreads();
+    while ( bsize > 0 ) {
+        if ( lindex < bsize ) {
+            temp[lindex] += temp[lindex + bsize];
+        }
+        bsize = bsize / 2;
+        __syncthreads();
+    }
+    if ( 0 == lindex ) {
+        d_sums[bindex] = temp[0];
+    }
+
 }
+
 
 int main(int argc, char **argv)
 {
@@ -309,7 +313,13 @@ int main(int argc, char **argv)
 
     init_sph(n);
     for (int s=0; s<nsteps; s++) {
-        
+        step<<<1,1>>>();
+
+
+        /* the average velocities MUST be computed at each step, even
+        if it is not shown (to ensure constant workload per
+        iteration) */
+        cudaSafeCall( cudaMemcpy(tmp, d_tmp, SIZE_TMP, cudaMemcpyDeviceToHost) );
         float avg;
 
         if (s % PRINT_AVERANGE == 0)

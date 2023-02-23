@@ -326,16 +326,12 @@ int main(int argc, char **argv)
 
 
     for (int s=0; s<nsteps; s++) {
-        printf("ciao");
         step<<<(n_particles + BLKDIM - 1)/BLKDIM, BLKDIM>>>(d_particles, d_n_particles, d_sums);
-        printf("ciao");
 
         /* the average velocities MUST be computed at each step, even
         if it is not shown (to ensure constant workload per
         iteration) */
-        printf("ciao");
         cudaMemcpy(sums, d_sums, sizeof(d_sums), cudaMemcpyDeviceToHost);
-        printf("ciao");
         float avg = 0.0;
         
         for (int i = 0; i < (MAX_PARTICLES + BLKDIM - 1) / BLKDIM; i++)

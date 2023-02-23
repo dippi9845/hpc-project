@@ -87,7 +87,8 @@ int n_particles = 0;    // number of currently active particles
 
 __device__ particle_t *d_particles;
 __device__ int *d_n_particles;
-
+__device__ float d_sums[(MAX_PARTICLES + BLKDIM - 1) / BLKDIM];
+float sums[(MAX_PARTICLES + BLKDIM - 1) / BLKDIM];
 
 /**
  * Return a random value in [a, b]
@@ -252,33 +253,34 @@ __device__ void integrate( int index_particle )
 
 __global__ void step() {
 
-    int index = threadIdx.x + blockIdx.x * blockDim.x;
-
-    compute_density_pressure(index);
-    __syncthreads();
-
-    compute_forces(index);
-    __syncthreads();
-
-    integrate(index);
-
-    __shared__ float temp[BLKDIM];
-    const int lindex = threadIdx.x;
-    const int bindex = blockIdx.x;
-    const int gindex = threadIdx.x + blockIdx.x * blockDim.x;
-    int bsize = blockDim.x / 2;
-    temp[lindex] = hypot(d_particles[index].vx, d_particles[index].vy) / *d_n_particles;
-
-    __syncthreads();
-    while ( bsize > 0 ) {
-        if ( lindex < bsize ) {
-            temp[lindex] += temp[lindex + bsize];
-        }
-        bsize = bsize / 2;
+    const int index = threadIdx.x + blockIdx.x * blockDim.x;
+    if (index < *d_n_particles) {
+        compute_density_pressure(index);
         __syncthreads();
-    }
-    if ( 0 == lindex ) {
-        d_sums[bindex] = temp[0];
+
+        compute_forces(index);
+        __syncthreads();
+
+        integrate(index);
+        
+        /* computation of averange veocity with reduction */
+        __shared__ float temp[BLKDIM];
+        const int lindex = threadIdx.x;
+        const int bindex = blockIdx.x;
+        int bsize = blockDim.x / 2;
+        temp[lindex] = hypot(d_particles[index].vx, d_particles[index].vy) / *d_n_particles;
+
+        __syncthreads();
+        while ( bsize > 0 ) {
+            if ( lindex < bsize ) {
+                temp[lindex] += temp[lindex + bsize];
+            }
+            bsize = bsize / 2;
+            __syncthreads();
+        }
+        if ( 0 == lindex ) {
+            d_sums[bindex] = temp[0];
+        }
     }
 
 }
@@ -318,19 +320,22 @@ int main(int argc, char **argv)
     cudaMemcpy(d_n_particles, &n, sizeof(int), cudaMemcpyHostToDevice);
 
     for (int s=0; s<nsteps; s++) {
-        step<<<1,1>>>();
+        step<<<(n_particles + BLKDIM - 1)/BLKDIM, BLKDIM>>>();
 
 
         /* the average velocities MUST be computed at each step, even
         if it is not shown (to ensure constant workload per
         iteration) */
-        cudaMemcpy(tmp, d_tmp, SIZE_TMP, cudaMemcpyDeviceToHost);
-        float avg;
+        cudaMemcpy(sums, d_sums, sizeof(d_sums), cudaMemcpyDeviceToHost);
+        float avg = 0.0;
+        
+        for (int i = 0; i < (MAX_PARTICLES + BLKDIM - 1) / BLKDIM; i++)
+            avg += sums[i];
 
         if (s % PRINT_AVERANGE == 0)
             printf("step %5d, avgV=%f\n", s, avg);
     }
-    
+
     cudaFree(d_particles);
     cudaFree(d_n_particles);
     free(particles);

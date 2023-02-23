@@ -85,10 +85,6 @@ typedef struct {
 particle_t *particles;
 int n_particles = 0;    // number of currently active particles
 
-__device__ particle_t *d_particles;
-__device__ int *d_n_particles;
-__device__ float d_sums[(MAX_PARTICLES + BLKDIM - 1) / BLKDIM];
-float sums[(MAX_PARTICLES + BLKDIM - 1) / BLKDIM];
 
 /**
  * Return a random value in [a, b]
@@ -158,7 +154,7 @@ void init_sph( int n )
  ** You may parallelize the following four functions
  **/
 
-__device__ void compute_density_pressure( int index_particle )
+__device__ void compute_density_pressure( particle_t* d_particles, int * d_n_particles, int index_particle )
 {
     const float HSQ = H * H;    // radius^2 for optimization
 
@@ -183,7 +179,7 @@ __device__ void compute_density_pressure( int index_particle )
     pi->p = GAS_CONST * (pi->rho - REST_DENS);
 }
 
-__device__ void compute_forces( int index_particle )
+__device__ void compute_forces( particle_t* d_particles, int * d_n_particles, int index_particle )
 {
     /* Smoothing kernels defined in Muller and their gradients adapted
        to 2D per "SPH Based Shallow Water Simulation" by Solenthaler
@@ -223,9 +219,9 @@ __device__ void compute_forces( int index_particle )
     pi->fy = fpress_y + fvisc_y + fgrav_y;
 }
 
-__device__ void integrate( int index_particle )
+__device__ void integrate( particle_t* d_particles, int index_particle )
 {
-    particle_t *p = &particles[index_particle];
+    particle_t *p = &d_particles[index_particle];
     // forward Euler integration
     p->vx += DT * p->fx / p->rho;
     p->vy += DT * p->fy / p->rho;
@@ -251,24 +247,24 @@ __device__ void integrate( int index_particle )
     }
 }
 
-__global__ void step() {
+__global__ void step(particle_t * d_p, int * d_n, float *d_sums) {
 
     const int index = threadIdx.x + blockIdx.x * blockDim.x;
-    if (index < *d_n_particles) {
-        compute_density_pressure(index);
+    if (index < *d_n) {
+        compute_density_pressure(d_p, d_n, index);
         __syncthreads();
 
-        compute_forces(index);
+        compute_forces(d_p, d_n, index);
         __syncthreads();
 
-        integrate(index);
+        integrate(d_p, index);
         
         /* computation of averange veocity with reduction */
         __shared__ float temp[BLKDIM];
         const int lindex = threadIdx.x;
         const int bindex = blockIdx.x;
         int bsize = blockDim.x / 2;
-        temp[lindex] = hypot(d_particles[index].vx, d_particles[index].vy) / *d_n_particles;
+        temp[lindex] = hypot(d_p[index].vx, d_p[index].vy) / *d_n;
 
         __syncthreads();
         while ( bsize > 0 ) {
@@ -314,19 +310,32 @@ int main(int argc, char **argv)
         return EXIT_FAILURE;
     }
 
+    particle_t *d_particles;
+    int *d_n_particles;
+    float sums[(MAX_PARTICLES + BLKDIM - 1) / BLKDIM];
+    float d_sums[(MAX_PARTICLES + BLKDIM - 1) / BLKDIM];
+
     init_sph(n);
     cudaMalloc((void **) &d_particles, sizeof(particle_t) * MAX_PARTICLES);
     cudaMemcpy(d_particles, &particles, sizeof(particle_t) * MAX_PARTICLES, cudaMemcpyHostToDevice);
+
+    cudaMalloc((void **) &d_n_particles, sizeof(int));
     cudaMemcpy(d_n_particles, &n, sizeof(int), cudaMemcpyHostToDevice);
+    
+    cudaMalloc((void **) &d_sums, sizeof(float) * (MAX_PARTICLES + BLKDIM - 1) / BLKDIM);
+
 
     for (int s=0; s<nsteps; s++) {
-        step<<<(n_particles + BLKDIM - 1)/BLKDIM, BLKDIM>>>();
-
+        printf("ciao");
+        step<<<(n_particles + BLKDIM - 1)/BLKDIM, BLKDIM>>>(d_particles, d_n_particles, d_sums);
+        printf("ciao");
 
         /* the average velocities MUST be computed at each step, even
         if it is not shown (to ensure constant workload per
         iteration) */
+        printf("ciao");
         cudaMemcpy(sums, d_sums, sizeof(d_sums), cudaMemcpyDeviceToHost);
+        printf("ciao");
         float avg = 0.0;
         
         for (int i = 0; i < (MAX_PARTICLES + BLKDIM - 1) / BLKDIM; i++)

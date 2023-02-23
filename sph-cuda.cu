@@ -86,7 +86,8 @@ particle_t *particles;
 int n_particles = 0;    // number of currently active particles
 
 __device__ particle_t *d_particles;
-__device__ int d_n_particles;
+__device__ int *d_n_particles;
+
 
 /**
  * Return a random value in [a, b]
@@ -167,7 +168,7 @@ __device__ void compute_density_pressure( int index_particle )
 
     particle_t *pi = &d_particles[index_particle];
     pi->rho = 0.0;
-    for (int j=0; j<d_n_particles; j++) {
+    for (int j=0; j<*d_n_particles; j++) {
         const particle_t *pj = &d_particles[j];
 
         const float dx = pj->x - pi->x;
@@ -194,7 +195,7 @@ __device__ void compute_forces( int index_particle )
     float fpress_x = 0.0, fpress_y = 0.0;
     float fvisc_x = 0.0, fvisc_y = 0.0;
 
-    for (int j=0; j<d_n_particles; j++) {
+    for (int j=0; j<*d_n_particles; j++) {
         const particle_t *pj = &d_particles[j];
 
         if (pi == pj)
@@ -266,8 +267,8 @@ __global__ void step() {
     const int bindex = blockIdx.x;
     const int gindex = threadIdx.x + blockIdx.x * blockDim.x;
     int bsize = blockDim.x / 2;
-    temp[lindex] = hypot(d_particles[index].vx, d_particles[index].vy) / d_n_particles;
-    
+    temp[lindex] = hypot(d_particles[index].vx, d_particles[index].vy) / *d_n_particles;
+
     __syncthreads();
     while ( bsize > 0 ) {
         if ( lindex < bsize ) {
@@ -312,6 +313,10 @@ int main(int argc, char **argv)
     }
 
     init_sph(n);
+    cudaMalloc((void **) &d_particles, sizeof(particle_t) * MAX_PARTICLES);
+    cudaMemcpy(d_particles, &particles, sizeof(particle_t) * MAX_PARTICLES, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_n_particles, &n, sizeof(int), cudaMemcpyHostToDevice);
+
     for (int s=0; s<nsteps; s++) {
         step<<<1,1>>>();
 
@@ -319,12 +324,15 @@ int main(int argc, char **argv)
         /* the average velocities MUST be computed at each step, even
         if it is not shown (to ensure constant workload per
         iteration) */
-        cudaSafeCall( cudaMemcpy(tmp, d_tmp, SIZE_TMP, cudaMemcpyDeviceToHost) );
+        cudaMemcpy(tmp, d_tmp, SIZE_TMP, cudaMemcpyDeviceToHost);
         float avg;
 
         if (s % PRINT_AVERANGE == 0)
             printf("step %5d, avgV=%f\n", s, avg);
     }
+    
+    cudaFree(d_particles);
+    cudaFree(d_n_particles);
     free(particles);
     return EXIT_SUCCESS;
 }

@@ -39,4 +39,4 @@ cuda: sph-cuda.cu
 	nvcc sph-cuda.cu $(LDLIBS) -o bin/sph-cuda
 
 clean:
-	\rm -f $(EXE) *.o *~
+	\rm -f bin/sph*

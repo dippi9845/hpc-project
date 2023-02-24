@@ -260,11 +260,13 @@ __global__ void step(particle_t * d_p, int * d_n, float *d_sums) {
         integrate(d_p, index);
         
         /* computation of averange veocity with reduction */
+        d_sums[index] = hypot(d_p[index].vx, d_p[index].vy) / *d_n;
+        
+        /* reduction of averange velocity */
         __shared__ float temp[BLKDIM];
         const int lindex = threadIdx.x;
         const int bindex = blockIdx.x;
         int bsize = blockDim.x / 2;
-        temp[lindex] = hypot(d_p[index].vx, d_p[index].vy) / *d_n;
 
         __syncthreads();
         while ( bsize > 0 ) {
@@ -277,6 +279,7 @@ __global__ void step(particle_t * d_p, int * d_n, float *d_sums) {
         if ( 0 == lindex ) {
             d_sums[bindex] = temp[0];
         }
+        
     }
 
 }
@@ -312,17 +315,19 @@ int main(int argc, char **argv)
 
     particle_t *d_particles;
     int *d_n_particles;
-    float sums[(MAX_PARTICLES + BLKDIM - 1) / BLKDIM];
-    float d_sums[(MAX_PARTICLES + BLKDIM - 1) / BLKDIM];
+    //float sums[(MAX_PARTICLES + BLKDIM - 1) / BLKDIM];
+    //float d_sums[(MAX_PARTICLES + BLKDIM - 1) / BLKDIM];
+    float * h_sums = (float *) malloc(MAX_PARTICLES * sizeof(float));
+    float *d_sums;
 
     init_sph(n);
     cudaMalloc((void **) &d_particles, sizeof(particle_t) * MAX_PARTICLES);
-    cudaMemcpy(&d_particles, &particles, sizeof(particle_t) * MAX_PARTICLES, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_particles, particles, sizeof(particle_t) * MAX_PARTICLES, cudaMemcpyHostToDevice);
 
     cudaMalloc((void **) &d_n_particles, sizeof(int));
-    cudaMemcpy(&d_n_particles, &n, sizeof(int), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_n_particles, &n, sizeof(int), cudaMemcpyHostToDevice);
     
-    cudaMalloc((void **) &d_sums, sizeof(float) * (MAX_PARTICLES + BLKDIM - 1) / BLKDIM);
+    cudaMalloc((void **) &d_sums, MAX_PARTICLES * sizeof(float));
 
 
     for (int s=0; s<nsteps; s++) {
@@ -331,11 +336,12 @@ int main(int argc, char **argv)
         /* the average velocities MUST be computed at each step, even
         if it is not shown (to ensure constant workload per
         iteration) */
-        cudaMemcpy(sums, d_sums, sizeof(d_sums), cudaMemcpyDeviceToHost);
+        cudaMemcpy(h_sums, d_sums, MAX_PARTICLES * sizeof(float), cudaMemcpyDeviceToHost);
+        
         float avg = 0.0;
         
-        for (int i = 0; i < (MAX_PARTICLES + BLKDIM - 1) / BLKDIM; i++)
-            avg += sums[i];
+        for (int i = 0; i < MAX_PARTICLES; i++)
+            avg += h_sums[i];
 
         if (s % PRINT_AVERANGE == 0)
             printf("step %5d, avgV=%f\n", s, avg);

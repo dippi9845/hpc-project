@@ -28,6 +28,7 @@
  * SOFTWARE.
  *
  ****************************************************************************/
+#include "hpc.h"
 #ifdef GUI
 #if __APPLE__
 #include <GLUT/glut.h>
@@ -414,17 +415,25 @@ int main(int argc, char **argv)
         fprintf(stderr, "FATAL: the maximum number of particles is %d\n", MAX_PARTICLES);
         return EXIT_FAILURE;
     }
-
+    
     init_sph(n);
+    
+    double loop_start = hpc_gettime();
     for (int s=0; s<nsteps; s++) {
+        double start = hpc_gettime();
         update();
         /* the average velocities MUST be computed at each step, even
            if it is not shown (to ensure constant workload per
            iteration) */
         const float avg = avg_velocities();
-        if (s % 10 == 0)
-            printf("step %5d, avgV=%f\n", s, avg);
+        double end = hpc_gettime();
+        if (s % 10 == 0) {
+            printf("step %5d, avgV=%f took: %fs\n", s, avg, end - start);
+        }
     }
+    double loop_end = hpc_gettime() - loop_start;
+    printf("took: %fs\n", loop_end);
+
 #endif
     free(particles);
     return EXIT_SUCCESS;

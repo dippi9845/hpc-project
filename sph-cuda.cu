@@ -28,7 +28,7 @@
  * SOFTWARE.
  *
  ****************************************************************************/
-
+#include "hpc.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -327,23 +327,30 @@ int main(int argc, char **argv)
     
     cudaMalloc((void **) &d_sums, MAX_PARTICLES * sizeof(float));
 
-
+    double loop_start = hpc_gettime();
+    
     for (int s=0; s<nsteps; s++) {
         step<<<(n_particles + BLKDIM - 1)/BLKDIM, BLKDIM>>>(d_particles, d_n_particles, d_sums);
 
         /* the average velocities MUST be computed at each step, even
         if it is not shown (to ensure constant workload per
         iteration) */
+        double start = hpc_gettime();
         cudaMemcpy(h_sums, d_sums, sizeof(h_sums), cudaMemcpyDeviceToHost);
         
         float avg = 0.0;
         
         for (int i = 0; i < 20; i++)
             avg += h_sums[i];
+        
+        double end = hpc_gettime() - start;
 
         if (s % PRINT_AVERANGE == 0)
-            printf("step %5d, avgV=%f\n", s, avg);
+            printf("step %5d, avgV=%f, took: %fs\n", s, avg, end);
     }
+
+    double loop_end = hpc_gettime() - loop_start;
+    printf("took: %fs\n", loop_end);
 
     cudaFree(d_particles);
     cudaFree(d_n_particles);

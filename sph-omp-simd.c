@@ -262,7 +262,6 @@ void compute_forces( size_t start, size_t end, size_t step, size_t my_id )
             v4f *vv_visc_x = (v4f*)near_visc_x;
             v4f *vv_visc_y = (v4f*)near_visc_y;
 
-            // TODO: problemi di cache provare anche 4 loop separati
             for (; index < near - VLEN + 1; index+= VLEN) {
                 pres_x += *vv_press_x;
                 pres_y += *vv_press_y;
@@ -285,7 +284,6 @@ void compute_forces( size_t start, size_t end, size_t step, size_t my_id )
         }
         */
            
-        /* remaining of everything TODO: cache pure qua */
         for (int index = 0; index < near; index++) {
             fpress_x += near_press_x[index + particles_num * my_id];
             fpress_y += near_press_y[index + particles_num * my_id];

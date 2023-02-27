@@ -403,13 +403,9 @@ int main(int argc, char **argv)
     const int max_th = omp_get_max_threads();
 
     near_rho = malloc(max_th * n * sizeof(float)); assert(near_rho != NULL);
-    
     near_press_x = malloc(max_th * n * sizeof(float)); assert(near_press_x != NULL);
-
     near_press_y = malloc(max_th * n * sizeof(float)); assert(near_press_y != NULL);
-
     near_visc_x = malloc(max_th * n * sizeof(float)); assert(near_visc_x != NULL);
-
     near_visc_y = malloc(max_th * n * sizeof(float)); assert(near_visc_y != NULL);
 
     init_sph(n);

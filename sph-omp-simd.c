@@ -183,7 +183,8 @@ void compute_density_pressure( size_t start, size_t end, size_t step, size_t my_
             const float dx = pj->x - pi->x;
             const float dy = pj->y - pi->y;
             const float d2 = dx*dx + dy*dy;
-
+/*
+            // versione simd
             if (d2 < HSQ) {
                 near_rho[near + my_index] = MASS * POLY6 * pow(HSQ - d2, 3.0);
                 near++;
@@ -193,6 +194,11 @@ void compute_density_pressure( size_t start, size_t end, size_t step, size_t my_
         #pragma omp simd
         for (int index = 0; index < near; index++) {
             pi->rho += near_rho[index + my_index];
+        }
+*/
+        if (d2 < HSQ) {
+                pi->rho += MASS * POLY6 * pow(HSQ - d2, 3.0);
+            }
         }
     
         // end of computation

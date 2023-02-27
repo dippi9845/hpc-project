@@ -173,8 +173,6 @@ void compute_density_pressure( size_t start, size_t end, size_t step, size_t my_
     const float POLY6 = 4.0 / (M_PI * pow(H, 8));
     const int my_index = particles_num * my_id;
 
-    printf("[id: %d] index: %d\n", my_id, my_index);
-
     for (int i = start; i < end; i += step) {
         particle_t *pi = &particles[i];
         pi->rho = 0.0;
@@ -185,16 +183,21 @@ void compute_density_pressure( size_t start, size_t end, size_t step, size_t my_
             const float dx = pj->x - pi->x;
             const float dy = pj->y - pi->y;
             const float d2 = dx*dx + dy*dy;
+/*
+            // old version
+            if (d2 < HSQ) {
+                pi->rho += MASS * POLY6 * pow(HSQ - d2, 3.0);
+            }
+        }
+        pi->p = GAS_CONST * (pi->rho - REST_DENS);
+    }
+*/
 
             if (d2 < HSQ) {
                 near_rho[near + my_index] = MASS * POLY6 * pow(HSQ - d2, 3.0);
                 near++;
             }
         }
-
-        /* evaluate rho 
-            pi->rho += MASS * POLY6 * pow(HSQ - d2, 3.0);
-        */
         int index = 0;
         
         if (near > VLEN) {
@@ -215,9 +218,10 @@ void compute_density_pressure( size_t start, size_t end, size_t step, size_t my_
             pi->rho += near_rho[index + my_index];
         }
         
-        /* end of simd computation */
+        // end of computation
         pi->p = GAS_CONST * (pi->rho - REST_DENS);
     }
+
 }
 
 void compute_forces( size_t start, size_t end, size_t step, size_t my_id )
@@ -446,7 +450,7 @@ int main(int argc, char **argv)
         double end = hpc_gettime();
         if (s % 10 == 0) {
             //printf("step %5d, avgV=%f took: %fs\n", s, avg, end - start);
-            printf("%f\n",avg);
+            printf("%f;",avg);
         }
     }
     double loop_end = hpc_gettime() - loop_start;

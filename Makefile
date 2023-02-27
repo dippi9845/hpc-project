@@ -38,5 +38,8 @@ omp-simd: sph-omp-simd.c
 cuda: sph-cuda.cu
 	nvcc sph-cuda.cu $(LDLIBS) -o bin/sph-cuda
 
+cuda-dbg: sph-cuda.cu
+	nvcc -g -G sph-cuda.cu $(LDLIBS) -o bin/sph-cuda
+
 clean:
 	\rm -f bin/sph*

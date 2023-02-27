@@ -28,7 +28,7 @@
  * SOFTWARE.
  *
  ****************************************************************************/
-
+#include "hpc.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -411,15 +411,22 @@ int main(int argc, char **argv)
     near_visc_y = malloc(n * sizeof(float)); assert(near_visc_y != NULL);
 
     init_sph(n);
+    double loop_start = hpc_gettime();
     for (int s=0; s<nsteps; s++) {
+        double start = hpc_gettime();
         update();
         /* the average velocities MUST be computed at each step, even
            if it is not shown (to ensure constant workload per
            iteration) */
         const float avg = avg_velocities();
-        if (s % 10 == 0)
-            printf("step %5d, avgV=%f\n", s, avg);
+        double end = hpc_gettime();
+        if (s % 10 == 0) {
+            //printf("step %5d, avgV=%f took: %fs\n", s, avg, end - start);
+            printf("%f;",avg);
+        }
     }
+    double loop_end = hpc_gettime() - loop_start;
+    //printf("took: %fs\n", loop_end);
 
     //free(particles);
     return EXIT_SUCCESS;

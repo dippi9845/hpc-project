@@ -143,7 +143,7 @@ int is_in_domain( float x, float y )
 void init_sph( int n )
 {
     n_particles = 0;
-    printf("Initializing with %d particles\n", n);
+    //printf("Initializing with %d particles\n", n);
 
     for (float y = EPS; y < VIEW_HEIGHT - EPS; y += H) {
         for (float x = EPS; x <= VIEW_WIDTH * 0.8f; x += H) {
@@ -171,7 +171,10 @@ void compute_density_pressure( size_t start, size_t end, size_t step, size_t my_
        to 2D per "SPH Based Shallow Water Simulation" by Solenthaler
        et al. */
     const float POLY6 = 4.0 / (M_PI * pow(H, 8));
-    
+    const int my_index = particles_num * my_id;
+
+    printf("[id: %d] index: %d\n", my_id, my_index);
+
     for (int i = start; i < end; i += step) {
         particle_t *pi = &particles[i];
         pi->rho = 0.0;
@@ -184,7 +187,7 @@ void compute_density_pressure( size_t start, size_t end, size_t step, size_t my_
             const float d2 = dx*dx + dy*dy;
 
             if (d2 < HSQ) {
-                near_rho[near + particles_num * my_id] = MASS * POLY6 * pow(HSQ - d2, 3.0);
+                near_rho[near + my_index] = MASS * POLY6 * pow(HSQ - d2, 3.0);
                 near++;
             }
         }
@@ -209,7 +212,7 @@ void compute_density_pressure( size_t start, size_t end, size_t step, size_t my_
         }
         
         for (; index < near; index++) {
-            pi->rho += near_rho[index + particles_num * my_id];
+            pi->rho += near_rho[index + my_index];
         }
         
         /* end of simd computation */
@@ -370,6 +373,8 @@ float update( void ) {
         const size_t my_end = (n_particles*(my_id+1))/num_threads;
         const size_t my_step = 1;
 
+        //printf("\n[id: %ld] start: %ld, end: %ld, step: %ld", my_id, my_start, my_end, my_step);
+
         compute_density_pressure(my_start, my_end, my_step, my_id);
         
         #pragma omp barrier
@@ -430,15 +435,22 @@ int main(int argc, char **argv)
     near_visc_y = malloc(max_th * n * sizeof(float)); assert(near_visc_y != NULL);
 
     init_sph(n);
-    double st = hpc_gettime();
+    double loop_start = hpc_gettime();
     for (int s=0; s<nsteps; s++) {
+        double start = hpc_gettime();
         
+        /* the average velocities MUST be computed at each step, even
+           if it is not shown (to ensure constant workload per
+           iteration) */
         const float avg = update();
-
-        if (s % 10 == 0)
-            printf("step %5d, avgV=%f\n", s, avg);
+        double end = hpc_gettime();
+        if (s % 10 == 0) {
+            //printf("step %5d, avgV=%f took: %fs\n", s, avg, end - start);
+            printf("%f\n",avg);
+        }
     }
-    printf("time elapsed: %f\n", hpc_gettime() - st);
+    double loop_end = hpc_gettime() - loop_start;
+    //printf("took: %fs\n", loop_end);
 
     free(particles);
     return EXIT_SUCCESS;

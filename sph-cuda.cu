@@ -282,6 +282,7 @@ __global__ void step(particle_t * d_p, int * d_n, float *d_sums) {
 
 }
 
+#define MAX_BLOCK (MAX_PARTICLES + BLKDIM - 1) / BLKDIM
 
 int main(int argc, char **argv)
 {
@@ -313,7 +314,7 @@ int main(int argc, char **argv)
 
     particle_t *d_particles;
     int *d_n_particles;
-    float h_sums[(MAX_PARTICLES + BLKDIM - 1) / BLKDIM];
+    float h_sums[MAX_BLOCK];
     //float d_sums[(MAX_PARTICLES + BLKDIM - 1) / BLKDIM];
     //float * h_sums = (float *) malloc(MAX_PARTICLES * sizeof(float));
     float *d_sums;
@@ -340,7 +341,7 @@ int main(int argc, char **argv)
         
         float avg = 0.0;
         
-        for (int i = 0; i < 20; i++)
+        for (int i = 0; i < MAX_BLOCK; i++)
             avg += h_sums[i];
         
         double end = hpc_gettime() - start;

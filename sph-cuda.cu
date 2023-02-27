@@ -282,7 +282,7 @@ __global__ void step(particle_t * d_p, int * d_n, float *d_sums) {
 
 }
 
-#define MAX_BLOCK (n_particles + BLKDIM - 1)/BLKDIM
+#define MAX_BLOCK (MAX_PARTICLES + BLKDIM - 1)/BLKDIM
 
 int main(int argc, char **argv)
 {
@@ -348,8 +348,8 @@ int main(int argc, char **argv)
         double end = hpc_gettime() - start;
 
         if (s % PRINT_AVERANGE == 0){
-            printf("step %5d, avgV=%f, took: %fs\n", s, avg, end);
-            //printf("%f;", avg);
+            //printf("step %5d, avgV=%f, took: %fs\n", s, avg, end);
+            printf("%f;", avg);
             //for (int i = 0; i < MAX_BLOCK; i++)
             //    printf("%f ", h_sums[i]);
             //printf("\n");

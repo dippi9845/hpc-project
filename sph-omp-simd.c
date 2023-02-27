@@ -183,41 +183,17 @@ void compute_density_pressure( size_t start, size_t end, size_t step, size_t my_
             const float dx = pj->x - pi->x;
             const float dy = pj->y - pi->y;
             const float d2 = dx*dx + dy*dy;
-/*
-            // old version
-            if (d2 < HSQ) {
-                pi->rho += MASS * POLY6 * pow(HSQ - d2, 3.0);
-            }
-        }
-        pi->p = GAS_CONST * (pi->rho - REST_DENS);
-    }
-*/
 
             if (d2 < HSQ) {
                 near_rho[near + my_index] = MASS * POLY6 * pow(HSQ - d2, 3.0);
                 near++;
             }
         }
-        int index = 0;
-        
-        if (near > VLEN) {
-            //printf("density near : %d\n", near);
-            v4f acc = {0.0, 0.0, 0.0, 0.0};
-            v4f *vv = (v4f*)near_rho;
 
-            for (; index < near - VLEN + 1; index+= VLEN) {
-                acc += *vv;
-                vv++;
-            }
-            
-            pi->rho = acc[0] + acc[1] + acc[2] + acc[3];
-            
-        }
-        
-        for (; index < near; index++) {
+        for (int index = 0; index < near; index++) {
             pi->rho += near_rho[index + my_index];
         }
-        
+    
         // end of computation
         pi->p = GAS_CONST * (pi->rho - REST_DENS);
     }

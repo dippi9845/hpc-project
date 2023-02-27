@@ -330,12 +330,12 @@ int main(int argc, char **argv)
     double loop_start = hpc_gettime();
     
     for (int s=0; s<nsteps; s++) {
+        double start = hpc_gettime();
         step<<<(n_particles + BLKDIM - 1)/BLKDIM, BLKDIM>>>(d_particles, d_n_particles, d_sums);
 
         /* the average velocities MUST be computed at each step, even
         if it is not shown (to ensure constant workload per
         iteration) */
-        double start = hpc_gettime();
         cudaMemcpy(h_sums, d_sums, sizeof(h_sums), cudaMemcpyDeviceToHost);
         
         float avg = 0.0;

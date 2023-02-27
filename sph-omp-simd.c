@@ -190,6 +190,7 @@ void compute_density_pressure( size_t start, size_t end, size_t step, size_t my_
             }
         }
 
+        #pragma omp simd
         for (int index = 0; index < near; index++) {
             pi->rho += near_rho[index + my_index];
         }

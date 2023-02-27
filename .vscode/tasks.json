@@ -32,6 +32,11 @@
             "label": "make-omp-simd",
             "type": "shell",
             "command": "make omp-simd",
+        },
+        {
+            "label": "make-cuda",
+            "type": "shell",
+            "command": "make cuda",
         }
     ],
     "version": "2.0.0"

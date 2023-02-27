@@ -134,7 +134,7 @@ int is_in_domain( float x, float y )
 void init_sph( int n )
 {
     n_particles = 0;
-    printf("Initializing with %d particles\n", n);
+    //printf("Initializing with %d particles\n", n);
 
     for (float y = EPS; y < VIEW_HEIGHT - EPS; y += H) {
         for (float x = EPS; x <= VIEW_WIDTH * 0.8f; x += H) {
@@ -282,6 +282,7 @@ __global__ void step(particle_t * d_p, int * d_n, float *d_sums) {
 
 }
 
+#define MAX_BLOCK (n_particles + BLKDIM - 1)/BLKDIM
 
 int main(int argc, char **argv)
 {
@@ -313,7 +314,7 @@ int main(int argc, char **argv)
 
     particle_t *d_particles;
     int *d_n_particles;
-    float h_sums[(MAX_PARTICLES + BLKDIM - 1) / BLKDIM];
+    float h_sums[MAX_BLOCK];
     //float d_sums[(MAX_PARTICLES + BLKDIM - 1) / BLKDIM];
     //float * h_sums = (float *) malloc(MAX_PARTICLES * sizeof(float));
     float *d_sums;
@@ -330,7 +331,7 @@ int main(int argc, char **argv)
     double loop_start = hpc_gettime();
     
     for (int s=0; s<nsteps; s++) {
-        step<<<(n_particles + BLKDIM - 1)/BLKDIM, BLKDIM>>>(d_particles, d_n_particles, d_sums);
+        step<<<MAX_BLOCK, BLKDIM>>>(d_particles, d_n_particles, d_sums);
 
         /* the average velocities MUST be computed at each step, even
         if it is not shown (to ensure constant workload per
@@ -340,13 +341,15 @@ int main(int argc, char **argv)
         
         float avg = 0.0;
         
-        for (int i = 0; i < 20; i++)
+        //#pragma omp simd
+        for (int i = 0; i < MAX_BLOCK; i++)
             avg += h_sums[i];
         
         double end = hpc_gettime() - start;
 
         if (s % PRINT_AVERANGE == 0)
             printf("step %5d, avgV=%f, took: %fs\n", s, avg, end);
+            //printf("%f;", avg);
     }
 
     double loop_end = hpc_gettime() - loop_start;

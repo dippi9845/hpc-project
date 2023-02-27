@@ -208,6 +208,7 @@ void compute_forces( size_t start, size_t end, size_t step, size_t my_id )
     const float SPIKY_GRAD = -10.0 / (M_PI * pow(H, 5));
     const float VISC_LAP = 40.0 / (M_PI * pow(H, 5));
     const float EPS = 1e-6;
+    const int my_index = particles_num * my_id;
 
     for (int i = start; i < end; i += step) {
         particle_t *pi = &particles[i];
@@ -229,11 +230,11 @@ void compute_forces( size_t start, size_t end, size_t step, size_t my_id )
                 const float norm_dx = dx / dist;
                 const float norm_dy = dy / dist;
                 // compute pressure force contribution
-                near_press_x[near + particles_num * my_id] = -norm_dx * MASS * (pi->p + pj->p) / (2 * pj->rho) * SPIKY_GRAD * pow(H - dist, 3);
-                near_press_y[near + particles_num * my_id] = -norm_dy * MASS * (pi->p + pj->p) / (2 * pj->rho) * SPIKY_GRAD * pow(H - dist, 3);
+                near_press_x[near + my_index] = -norm_dx * MASS * (pi->p + pj->p) / (2 * pj->rho) * SPIKY_GRAD * pow(H - dist, 3);
+                near_press_y[near + my_index] = -norm_dy * MASS * (pi->p + pj->p) / (2 * pj->rho) * SPIKY_GRAD * pow(H - dist, 3);
                 // compute viscosity force contribution
-                near_visc_x[near + particles_num * my_id] = VISC * MASS * (pj->vx - pi->vx) / pj->rho * VISC_LAP * (H - dist);
-                near_visc_y[near + particles_num * my_id] = VISC * MASS * (pj->vy - pi->vy) / pj->rho * VISC_LAP * (H - dist);
+                near_visc_x[near + my_index] = VISC * MASS * (pj->vx - pi->vx) / pj->rho * VISC_LAP * (H - dist);
+                near_visc_y[near + my_index] = VISC * MASS * (pj->vy - pi->vy) / pj->rho * VISC_LAP * (H - dist);
                 near++;
             }
         }
@@ -285,10 +286,10 @@ void compute_forces( size_t start, size_t end, size_t step, size_t my_id )
         */
            
         for (int index = 0; index < near; index++) {
-            fpress_x += near_press_x[index + particles_num * my_id];
-            fpress_y += near_press_y[index + particles_num * my_id];
-            fvisc_x += near_visc_x[index + particles_num * my_id];
-            fvisc_y += near_visc_y[index + particles_num * my_id];
+            fpress_x += near_press_x[index + my_index];
+            fpress_y += near_press_y[index + my_index];
+            fvisc_x += near_visc_x[index + my_index];
+            fvisc_y += near_visc_y[index + my_index];
         }
         /*-------------------------------------*/
 
@@ -419,12 +420,12 @@ int main(int argc, char **argv)
         const float avg = update();
         double end = hpc_gettime();
         if (s % 10 == 0) {
-            //printf("step %5d, avgV=%f took: %fs\n", s, avg, end - start);
-            printf("%f;",avg);
+            printf("step %5d, avgV=%f took: %fs\n", s, avg, end - start);
+            //printf("%f;",avg);
         }
     }
     double loop_end = hpc_gettime() - loop_start;
-    //printf("took: %fs\n", loop_end);
+    printf("took: %fs\n", loop_end);
 
     free(particles);
     return EXIT_SUCCESS;

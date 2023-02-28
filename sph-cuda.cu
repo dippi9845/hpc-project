@@ -339,7 +339,6 @@ int main(int argc, char **argv)
         
         float avg = 0.0;
         
-        //#pragma omp simd
         for (int i = 0; i < block_num; i++)
             avg += h_sums[i];
         

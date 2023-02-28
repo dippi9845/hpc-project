@@ -335,7 +335,7 @@ int main(int argc, char **argv)
         /* the average velocities MUST be computed at each step, even
         if it is not shown (to ensure constant workload per
         iteration) */
-        cudaMemcpy(h_sums, d_sums, sizeof(h_sums), cudaMemcpyDeviceToHost);
+        cudaMemcpy(h_sums, d_sums, block_num * sizeof(float), cudaMemcpyDeviceToHost);
         
         float avg = 0.0;
         

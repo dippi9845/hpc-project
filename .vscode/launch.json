@@ -1,6 +1,15 @@
 {
     "version": "0.2.0",
     "configurations": [
+
+        {
+            "name": "CUDA gdb",
+            "type": "cuda-gdb",
+            "request": "launch",
+            "program": "${workspaceFolder}/bin/sph-cuda",
+            "preLaunchTask": "make-cuda",
+            "args": "2000 100"
+        },
         {
             "name": "(gdb) Debug sph-simd",
             "type": "cppdbg",

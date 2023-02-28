@@ -154,8 +154,9 @@ void init_sph( int n )
  ** You may parallelize the following four functions
  **/
 
-__device__ void compute_density_pressure( particle_t* d_particles, int * d_n_particles, int index_particle )
+__global__ void compute_density_pressure( particle_t* d_particles, int n_particles)
 {
+    const int index_particle = threadIdx.x + blockIdx.x * blockDim.x;
     const float HSQ = H * H;    // radius^2 for optimization
 
     /* Smoothing kernels defined in Muller and their gradients adapted
@@ -165,7 +166,7 @@ __device__ void compute_density_pressure( particle_t* d_particles, int * d_n_par
 
     particle_t *pi = &d_particles[index_particle];
     pi->rho = 0.0;
-    for (int j=0; j<*d_n_particles; j++) {
+    for (int j=0; j< n_particles; j++) {
         const particle_t *pj = &d_particles[j];
 
         const float dx = pj->x - pi->x;
@@ -179,8 +180,9 @@ __device__ void compute_density_pressure( particle_t* d_particles, int * d_n_par
     pi->p = GAS_CONST * (pi->rho - REST_DENS);
 }
 
-__device__ void compute_forces( particle_t* d_particles, int * d_n_particles, int index_particle )
+__global__ void compute_forces( particle_t* d_particles, int n_particles )
 {
+    const int index_particle = threadIdx.x + blockIdx.x * blockDim.x;
     /* Smoothing kernels defined in Muller and their gradients adapted
        to 2D per "SPH Based Shallow Water Simulation" by Solenthaler
        et al. */
@@ -192,7 +194,7 @@ __device__ void compute_forces( particle_t* d_particles, int * d_n_particles, in
     float fpress_x = 0.0, fpress_y = 0.0;
     float fvisc_x = 0.0, fvisc_y = 0.0;
 
-    for (int j=0; j<*d_n_particles; j++) {
+    for (int j=0; j< n_particles; j++) {
         const particle_t *pj = &d_particles[j];
 
         if (pi == pj)
@@ -219,8 +221,9 @@ __device__ void compute_forces( particle_t* d_particles, int * d_n_particles, in
     pi->fy = fpress_y + fvisc_y + fgrav_y;
 }
 
-__device__ void integrate( particle_t* d_particles, int index_particle )
+__device__ void integrate( particle_t* d_particles )
 {
+    const int index_particle = threadIdx.x + blockIdx.x * blockDim.x;
     particle_t *p = &d_particles[index_particle];
     // forward Euler integration
     p->vx += DT * p->fx / p->rho;
@@ -247,39 +250,26 @@ __device__ void integrate( particle_t* d_particles, int index_particle )
     }
 }
 
-__global__ void step(particle_t * d_p, int * d_n, float *d_sums) {
-
+__global__ void reduction(particle_t* d_p, int n, float * d_sums) {
     const int index = threadIdx.x + blockIdx.x * blockDim.x;
-    if (index < *d_n) {
-        compute_density_pressure(d_p, d_n, index);
-        __syncthreads();
+    /* reduction of averange velocity */
+    __shared__ float temp[BLKDIM];
+    const int lindex = threadIdx.x;
+    const int bindex = blockIdx.x;
+    int bsize = blockDim.x / 2;
+    temp[lindex] = hypot(d_p[index].vx, d_p[index].vy) / n;
 
-        compute_forces(d_p, d_n, index);
-        __syncthreads();
-
-        integrate(d_p, index);
-        
-        /* reduction of averange velocity */
-        __shared__ float temp[BLKDIM];
-        const int lindex = threadIdx.x;
-        const int bindex = blockIdx.x;
-        int bsize = blockDim.x / 2;
-        temp[lindex] = hypot(d_p[index].vx, d_p[index].vy) / *d_n;
-
-        __syncthreads();
-        while ( bsize > 0 ) {
-            if ( lindex < bsize ) {
-                temp[lindex] += temp[lindex + bsize];
-            }
-            bsize = bsize / 2;
-            __syncthreads();
+    __syncthreads();
+    while ( bsize > 0 ) {
+        if ( lindex < bsize ) {
+            temp[lindex] += temp[lindex + bsize];
         }
-        if ( 0 == lindex ) {
-            d_sums[bindex] = temp[0];
-        }
-        
+        bsize = bsize / 2;
+        __syncthreads();
     }
-
+    if ( 0 == lindex ) {
+        d_sums[bindex] = temp[0];
+    }
 }
 
 #define MAX_BLOCK (MAX_PARTICLES + BLKDIM - 1)/BLKDIM
@@ -313,27 +303,35 @@ int main(int argc, char **argv)
     }
 
     particle_t *d_particles;
-    int *d_n_particles;
     float h_sums[MAX_BLOCK];
     //float d_sums[(MAX_PARTICLES + BLKDIM - 1) / BLKDIM];
     //float * h_sums = (float *) malloc(MAX_PARTICLES * sizeof(float));
     float *d_sums;
+    int block_num = (n + BLKDIM - 1)/BLKDIM;
 
     init_sph(n);
-    cudaMalloc((void **) &d_particles, sizeof(particle_t) * MAX_PARTICLES);
-    cudaMemcpy(d_particles, particles, sizeof(particle_t) * MAX_PARTICLES, cudaMemcpyHostToDevice);
-
-    cudaMalloc((void **) &d_n_particles, sizeof(int));
-    cudaMemcpy(d_n_particles, &n, sizeof(int), cudaMemcpyHostToDevice);
+    cudaMalloc((void **) &d_particles, sizeof(particle_t) * n);
+    cudaMemcpy(d_particles, particles, sizeof(particle_t) * n, cudaMemcpyHostToDevice);
     
-    cudaMalloc((void **) &d_sums, MAX_PARTICLES * sizeof(float));
+    cudaMalloc((void **) &d_sums, block_num * sizeof(float));
 
     double loop_start = hpc_gettime();
     
     for (int s=0; s<nsteps; s++) {
         double start = hpc_gettime();
-        step<<<MAX_BLOCK, BLKDIM>>>(d_particles, d_n_particles, d_sums);
+        compute_density_pressure<<<block_num, BLKDIM>>>(d_particles, n);
+        
+        cudaDeviceSynchronize();
 
+        compute_forces<<<block_num, BLKDIM>>>(d_particles, n);
+
+        cudaDeviceSynchronize();
+
+        integrate<<<block_num, BLKDIM>>>(d_particles);
+
+        cudaDeviceSynchronize();
+
+        reduction<<<block_num, BLKDIM>>>(d_particles, n, d_sums);
         /* the average velocities MUST be computed at each step, even
         if it is not shown (to ensure constant workload per
         iteration) */
@@ -342,14 +340,14 @@ int main(int argc, char **argv)
         float avg = 0.0;
         
         //#pragma omp simd
-        for (int i = 0; i < MAX_BLOCK; i++)
+        for (int i = 0; i < block_num; i++)
             avg += h_sums[i];
         
         double end = hpc_gettime() - start;
 
         if (s % PRINT_AVERANGE == 0){
-            //printf("step %5d, avgV=%f, took: %fs\n", s, avg, end);
-            printf("%f;", avg);
+            printf("step %5d, avgV=%f, took: %fs\n", s, avg, end);
+            //printf("%f;", avg);
             //for (int i = 0; i < MAX_BLOCK; i++)
             //    printf("%f ", h_sums[i]);
             //printf("\n");
@@ -360,7 +358,6 @@ int main(int argc, char **argv)
     printf("took: %fs\n", loop_end);
 
     cudaFree(d_particles);
-    cudaFree(d_n_particles);
     free(particles);
     return EXIT_SUCCESS;
 }

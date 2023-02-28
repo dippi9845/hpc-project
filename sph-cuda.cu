@@ -221,7 +221,7 @@ __global__ void compute_forces( particle_t* d_particles, int n_particles )
     pi->fy = fpress_y + fvisc_y + fgrav_y;
 }
 
-__device__ void integrate( particle_t* d_particles )
+__global__ void integrate( particle_t* d_particles )
 {
     const int index_particle = threadIdx.x + blockIdx.x * blockDim.x;
     particle_t *p = &d_particles[index_particle];

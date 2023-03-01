@@ -1,4 +1,4 @@
-#!bin/bash
+#!/bin/bash
 
 EXPORT_PATH=/media/dippi/Volume1/hpc_tests/
 MAX_THREAD=24

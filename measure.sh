@@ -11,7 +11,7 @@ CURRENT_EXE="${EXE_PATH}/sph"
 make sph
 mkdir CURRENT_DIR
 
-for (( try=1; $try<=$try; i=$try+1 )); do
+for (( try=1; $try<=$REPETITIONS; try=$try+1 )); do
     echo "[runno i sph: $try]"
 done
 

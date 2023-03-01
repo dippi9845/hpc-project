@@ -358,12 +358,6 @@ int main(int argc, char **argv)
 #ifdef STEP_PERFORMANCE
         double end = hpc_gettime() - start;
         printf("%f;", end);
-
-#else
-
-        if (s % PRINT_AVERANGE == 0){
-            printf("step %5d, avgV=%f\n", s, avg);
-        }
 #endif
 
     }
@@ -372,7 +366,7 @@ int main(int argc, char **argv)
 
     double loop_end = hpc_gettime() - loop_start;
     
-    printf("took: %fs\n", loop_end);
+    printf("%f\n", loop_end);
 
 #endif
 

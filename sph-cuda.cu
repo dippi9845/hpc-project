@@ -357,7 +357,7 @@ int main(int argc, char **argv)
 
 #ifdef STEP_PERFORMANCE
         double end = hpc_gettime() - start;
-        printf("%f;", s, avg, end);
+        printf("%f;", end);
 
 #else
 

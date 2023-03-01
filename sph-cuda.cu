@@ -323,10 +323,15 @@ int main(int argc, char **argv)
     
     cudaMalloc((void **) &d_sums, block_num * sizeof(float));
 
+#ifndef STEP_PERFORMANCE
     double loop_start = hpc_gettime();
-    
+#endif
+
     for (int s=0; s<nsteps; s++) {
+
+#ifdef STEP_PERFORMANCE
         double start = hpc_gettime();
+#endif
         compute_density_pressure<<<block_num, BLKDIM>>>(d_particles, n);
         
         cudaDeviceSynchronize();
@@ -344,25 +349,33 @@ int main(int argc, char **argv)
         if it is not shown (to ensure constant workload per
         iteration) */
         cudaMemcpy(h_sums, d_sums, block_num * sizeof(float), cudaMemcpyDeviceToHost);
-        
+
         float avg = 0.0;
         
         for (int i = 0; i < block_num; i++)
             avg += h_sums[i];
-        
+
+#ifdef STEP_PERFORMANCE
         double end = hpc_gettime() - start;
+        printf("%f;", s, avg, end);
+
+#else
 
         if (s % PRINT_AVERANGE == 0){
-            printf("step %5d, avgV=%f, took: %fs\n", s, avg, end);
-            //printf("%f;", avg);
-            //for (int i = 0; i < MAX_BLOCK; i++)
-            //    printf("%f ", h_sums[i]);
-            //printf("\n");
+            printf("step %5d, avgV=%f\n", s, avg);
         }
+#endif
+
     }
 
+#ifndef STEP_PERFORMANCE
+
     double loop_end = hpc_gettime() - loop_start;
+    
     printf("took: %fs\n", loop_end);
+
+#endif
+
 
     cudaFree(d_particles);
     free(particles);

@@ -417,22 +417,35 @@ int main(int argc, char **argv)
     near_visc_y = malloc(max_th * n * sizeof(float)); assert(near_visc_y != NULL);
 
     init_sph(n);
+
+#ifndef STEP_PERFORMANCE
     double loop_start = hpc_gettime();
+#endif
+
     for (int s=0; s<nsteps; s++) {
+
+#ifdef STEP_PERFORMANCE
         double start = hpc_gettime();
+#endif
         
         /* the average velocities MUST be computed at each step, even
            if it is not shown (to ensure constant workload per
            iteration) */
         const float avg = update();
-        double end = hpc_gettime();
-        if (s % 10 == 0) {
-            printf("step %5d, avgV=%f took: %fs\n", s, avg, end - start);
-            //printf("%f;",avg);
-        }
+
+#ifdef STEP_PERFORMANCE
+        double end = hpc_gettime() - start;
+        printf("%f;", end);
+#endif
+
     }
+
+#ifndef STEP_PERFORMANCE
+    
     double loop_end = hpc_gettime() - loop_start;
-    printf("took: %fs\n", loop_end);
+    printf("%f\n", loop_end);
+    
+#endif
 
     free(particles);
     return EXIT_SUCCESS;

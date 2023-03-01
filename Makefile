@@ -38,8 +38,8 @@ omp-simd: sph-omp-simd.c
 cuda: sph-cuda.cu
 	nvcc sph-cuda.cu $(LDLIBS) -o bin/sph-cuda
 
-cuda-dbg: sph-cuda.cu
-	nvcc -g -G sph-cuda.cu $(LDLIBS) -o bin/sph-cuda
+cuda-step: sph-cuda.cu
+	nvcc sph-cuda.cu -D"STEP_PERFORMANCE" $(LDLIBS) -o bin/sph-cuda-step
 
 clean:
 	\rm -f bin/sph*

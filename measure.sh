@@ -34,9 +34,9 @@ test_loop_parallel() {
     make $MAKE_NAME 1>/dev/null 2>&1 
     mkdir $CURRENT_DIR 2>/dev/null
 
-    for (( CUR_PAR=500; $CUR_PAR<=$MAX_PARTICLES; CUR_PAR=$CUR_PAR+500 )); do # particles [2000, 20000] -> 10
+    for (( CUR_PAR=500; $CUR_PAR<=$MAX_PARTICLES; CUR_PAR=$CUR_PAR+500 )); do # particles [500, 6000] -> 10
         echo "        [P: $CUR_PAR]"
-        for (( CUR_STEP=100; $CUR_STEP<=$MAX_STEPS; CUR_STEP=$CUR_STEP+50 )); do # steps [200, 1000] -> 5
+        for (( CUR_STEP=100; $CUR_STEP<=$MAX_STEPS; CUR_STEP=$CUR_STEP+50 )); do # steps [100, 200] -> 3
             TO_PRINT=""
             for (( try=0; $try<$REPETITIONS; try=$try+1 )); do #  * 8 
                 OUT=`OMP_NUM_THREADS=${3} $CURRENT_EXE $CUR_PAR $CUR_STEP`

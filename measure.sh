@@ -18,7 +18,7 @@ test_loop() {
                 OUT=`$CURRENT_EXE $CUR_PAR $CUR_STEP`
                 TO_PRINT="$TO_PRINT;$OUT"
             done
-            echo ${TO_PRINT:1} > "$CURRENT_DIR/run_p_${CUR_PAR}_s_${CUR_STEP}${3}.csv"
+            echo ${TO_PRINT:1} > "$CURRENT_DIR/run_p_${CUR_PAR}_s_${CUR_STEP}.csv"
         done
     done
 }

@@ -59,23 +59,24 @@ test_loop "sph" "sph"
 
 echo "Finito la versione seriale"
 
-test_loop "sph-simd" "simd"
+#test_loop "sph-simd" "simd"
 
 echo "Finito la versione simd"
 
 echo "inizio omp"
 
-for (( i=1; $i<=$MAX_THREAD; i=$i+1 )); do
-    echo "    [th: $i]" 
-    test_loop_parallel "sph-omp" "omp" $i
-done
+#for (( i=1; $i<=$MAX_THREAD; i=$i+1 )); do
+#    echo "    [th: $i]" 
+#    test_loop_parallel "sph-omp" "omp" $i
+#done
 
-echo "fine omp"
-echo "inizio omp simd"
+#echo "fine omp"
+#echo "inizio omp simd"
 
-for (( i=1; $i<=$MAX_THREAD; i=$i+1 )); do
-    echo "    [th: $i]" 
-    test_loop_parallel "sph-omp-simd" "omp-simd" $i
-done
+#for (( i=1; $i<=$MAX_THREAD; i=$i+1 )); do
+#    echo "    [th: $i]" 
+#    test_loop_parallel "sph-omp-simd" "omp-simd" $i
+#done
 
 echo "fine omp simd"
+

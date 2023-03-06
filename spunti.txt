@@ -21,3 +21,5 @@ SIMD-OMP:
     3 - proviamo con i low level sse
 
 fare le varianze delle varie versioni
+
+per il quad tree basta controllare il caso peggiore per sapere se un quadrato è toccato dal cerchio

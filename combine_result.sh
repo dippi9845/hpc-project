@@ -91,4 +91,4 @@ MAX_PARTICLES=6000
 #omp_union
 
 # unisci i tempi paralleli di omp-simd
-omp_union "-simd"
+#omp_union "-simd"

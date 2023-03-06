@@ -12,7 +12,7 @@ test_loop() {
 
     for (( CUR_PAR=500; $CUR_PAR<=$MAX_PARTICLES; CUR_PAR=$CUR_PAR+500 )); do # particles [2000, 20000] -> 10
         echo "[P: $CUR_PAR]"
-        for (( CUR_STEP=200; $CUR_STEP<=$MAX_STEPS; CUR_STEP=$CUR_STEP+200 )); do # steps [200, 1000] -> 5
+        for (( CUR_STEP=200; $CUR_STEP<=$MAX_STEPS; CUR_STEP=$CUR_STEP+50 )); do # steps [200, 200] -> 1
             TO_PRINT=""
             for (( try=0; $try<$REPETITIONS; try=$try+1 )); do #  * 8 
                 OUT=`$CURRENT_EXE $CUR_PAR $CUR_STEP`
@@ -36,7 +36,7 @@ test_loop_parallel() {
 
     for (( CUR_PAR=500; $CUR_PAR<=$MAX_PARTICLES; CUR_PAR=$CUR_PAR+500 )); do # particles [500, 6000] -> 10
         echo "        [P: $CUR_PAR]"
-        for (( CUR_STEP=100; $CUR_STEP<=$MAX_STEPS; CUR_STEP=$CUR_STEP+50 )); do # steps [100, 200] -> 3
+        for (( CUR_STEP=50; $CUR_STEP<=$MAX_STEPS; CUR_STEP=$CUR_STEP+50 )); do # steps [50, 200] -> 4
             TO_PRINT=""
             for (( try=0; $try<$REPETITIONS; try=$try+1 )); do #  * 8 
                 OUT=`OMP_NUM_THREADS=${3} $CURRENT_EXE $CUR_PAR $CUR_STEP`
@@ -55,13 +55,13 @@ EXE_PATH=bin
 MAX_STEPS=200
 MAX_PARTICLES=6000
 
-#test_loop "sph" "sph"
+test_loop "sph" "sph"
 
-#echo "Finito la versione seriale"
+echo "Finito la versione seriale"
 
-#test_loop "sph-simd" "simd"
+test_loop "sph-simd" "simd"
 
-#echo "Finito la versione simd"
+echo "Finito la versione simd"
 
 echo "inizio omp"
 

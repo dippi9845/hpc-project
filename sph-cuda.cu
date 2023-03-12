@@ -291,6 +291,11 @@ int main(int argc, char **argv)
 
     int n = DAM_PARTICLES;
     int nsteps = 50;
+    
+    size_t sharedMemPerBlock;
+    cudaDeviceProp deviceProp;
+    cudaGetDeviceProperties(&deviceProp, 0);
+    sharedMemPerBlock = deviceProp.sharedMemPerBlock;
 
     if (argc > 3) {
         fprintf(stderr, "Usage: %s [nparticles [nsteps]]\n", argv[0]);

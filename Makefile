@@ -41,6 +41,9 @@ cuda: sph-cuda.cu
 cuda-SoA: sph-cuda-SoA.cu
 	nvcc sph-cuda-SoA.cu $(LDLIBS) -o bin/sph-cuda-SoA
 
+cuda-shared: sph-cuda-shared.cu
+	nvcc sph-cuda-shared.cu $(LDLIBS) -o bin/sph-cuda-shared
+
 cuda-dbg: sph-cuda.cu
 	nvcc -g -G sph-cuda.cu $(LDLIBS) -o bin/sph-cuda
 

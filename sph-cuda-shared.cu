@@ -159,10 +159,12 @@ void init_sph( int n )
  ** You may parallelize the following four functions
  **/
 
-__global__ void compute_density_pressure( float* d_rho, float* d_pos_x, float * d_pos_y, float * d_p, int n_particles)
+__global__ void compute_density_pressure( float* d_rho, float* d_pos_x, float * d_pos_y, float * d_p, int n_particles, size_t shared_mem_bytes)
 {
     const int index_particle = threadIdx.x + blockIdx.x * blockDim.x;
     if (index_particle < n_particles) {
+        __shared__ float pos[shared_mem_bytes];
+
         const float HSQ = H * H;    // radius^2 for optimization
 
         /* Smoothing kernels defined in Muller and their gradients adapted
@@ -367,7 +369,7 @@ int main(int argc, char **argv)
     
     for (int s=0; s<nsteps; s++) {
         double start = hpc_gettime();
-        compute_density_pressure<<<block_num, BLKDIM>>>(d_rho, d_pos_x, d_pos_y, d_p, n);
+        compute_density_pressure<<<block_num, BLKDIM>>>(d_rho, d_pos_x, d_pos_y, d_p, n, sharedMemPerBlock);
         
         cudaDeviceSynchronize();
 

@@ -411,13 +411,13 @@ int main(int argc, char **argv)
     cudaFree(d_sums);
 
 
-    free(d_rho);
-    free(d_pos_x);
-    free(d_pos_y);
-    free(d_p);
-    free(d_vx);
-    free(d_vy);
-    free(d_fx);
-    free(d_fy);
+    free(rho);
+    free(pos_x);
+    free(pos_y);
+    free(p);
+    free(vx);
+    free(vy);
+    free(fx);
+    free(fy);
     return EXIT_SUCCESS;
 }

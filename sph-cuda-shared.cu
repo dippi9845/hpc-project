@@ -82,7 +82,12 @@ typedef struct {
     float rho, p;       // density, pressure
 } particle_t;
 
-particle_t *particles;
+
+float *pos_x, *pos_y;
+float *vx, *vy;
+float *fx, *fy;
+float *rho, *p; 
+
 int n_particles = 0;    // number of currently active particles
 
 
@@ -98,14 +103,14 @@ float randab(float a, float b)
  * Set initial position of particle `*p` to (x, y); initialize all
  * other attributes to default values (zeros).
  */
-void init_particle( particle_t *p, float x, float y )
+void init_particle( int index , float x, float y )
 {
-    p->x = x;
-    p->y = y;
-    p->vx = p->vy = 0.0;
-    p->fx = p->fy = 0.0;
-    p->rho = 0.0;
-    p->p = 0.0;
+    pos_x[index] = x;
+    pos_y[index] = y;
+    vx[index] = vy[index] = 0.0;
+    fx[index] = fy[index] = 0.0;
+    rho[index] = 0.0;
+    p[index] = 0.0;
 }
 
 /**
@@ -140,7 +145,7 @@ void init_sph( int n )
         for (float x = EPS; x <= VIEW_WIDTH * 0.8f; x += H) {
             if (n_particles < n) {
                 float jitter = rand() / (float)RAND_MAX;
-                init_particle(particles + n_particles, x+jitter, y);
+                init_particle(n_particles, x+jitter, y);
                 n_particles++;
             } else {
                 return;
@@ -154,7 +159,7 @@ void init_sph( int n )
  ** You may parallelize the following four functions
  **/
 
-__global__ void compute_density_pressure( particle_t* d_particles, int n_particles)
+__global__ void compute_density_pressure( float* d_rho, float* d_pos_x, float * d_pos_y, float * d_p, int n_particles)
 {
     const int index_particle = threadIdx.x + blockIdx.x * blockDim.x;
     if (index_particle < n_particles) {
@@ -165,24 +170,22 @@ __global__ void compute_density_pressure( particle_t* d_particles, int n_particl
         et al. */
         const float POLY6 = 4.0 / (M_PI * pow(H, 8));
 
-        particle_t *pi = &d_particles[index_particle];
-        pi->rho = 0.0;
+        d_rho[index_particle] = 0.0;
         for (int j=0; j< n_particles; j++) {
-            const particle_t *pj = &d_particles[j];
 
-            const float dx = pj->x - pi->x;
-            const float dy = pj->y - pi->y;
+            const float dx = d_pos_x[j] - d_pos_x[index_particle];
+            const float dy = d_pos_y[j] - d_pos_y[index_particle];
             const float d2 = dx*dx + dy*dy;
 
             if (d2 < HSQ) {
-                pi->rho += MASS * POLY6 * pow(HSQ - d2, 3.0);
+                d_rho[index_particle] += MASS * POLY6 * pow(HSQ - d2, 3.0);
             }
         }
-        pi->p = GAS_CONST * (pi->rho - REST_DENS);
+        d_p[index_particle] = GAS_CONST * (d_rho[index_particle] - REST_DENS);
     }
 }
 
-__global__ void compute_forces( particle_t* d_particles, int n_particles )
+__global__ void compute_forces( float* d_rho, float* d_pos_x, float * d_pos_y, float * d_p, float* d_vx, float* d_vy, float* d_fx, float* d_fy, int n_particles )
 {
     const int index_particle = threadIdx.x + blockIdx.x * blockDim.x;
     /* Smoothing kernels defined in Muller and their gradients adapted
@@ -193,70 +196,69 @@ __global__ void compute_forces( particle_t* d_particles, int n_particles )
         const float VISC_LAP = 40.0 / (M_PI * pow(H, 5));
         const float EPS = 1e-6;
 
-        particle_t *pi = &d_particles[index_particle];
+        //particle_t *pi = &d_particles[index_particle];
         float fpress_x = 0.0, fpress_y = 0.0;
         float fvisc_x = 0.0, fvisc_y = 0.0;
 
         for (int j=0; j< n_particles; j++) {
-            const particle_t *pj = &d_particles[j];
 
-            if (pi == pj)
+            if (index_particle == j)
                 continue;
 
-            const float dx = pj->x - pi->x;
-            const float dy = pj->y - pi->y;
+            const float dx = d_pos_x[j] - d_pos_x[index_particle];
+            const float dy = d_pos_y[j] - d_pos_y[index_particle];
             const float dist = hypotf(dx, dy) + EPS; // avoids division by zero later on
 
             if (dist < H) {
                 const float norm_dx = dx / dist;
                 const float norm_dy = dy / dist;
                 // compute pressure force contribution
-                fpress_x += -norm_dx * MASS * (pi->p + pj->p) / (2 * pj->rho) * SPIKY_GRAD * pow(H - dist, 3);
-                fpress_y += -norm_dy * MASS * (pi->p + pj->p) / (2 * pj->rho) * SPIKY_GRAD * pow(H - dist, 3);
+                fpress_x += -norm_dx * MASS * (d_p[index_particle] + d_p[j]) / (2 * d_rho[j]) * SPIKY_GRAD * pow(H - dist, 3);
+                fpress_y += -norm_dy * MASS * (d_p[index_particle] + d_p[j]) / (2 * d_rho[j]) * SPIKY_GRAD * pow(H - dist, 3);
                 // compute viscosity force contribution
-                fvisc_x += VISC * MASS * (pj->vx - pi->vx) / pj->rho * VISC_LAP * (H - dist);
-                fvisc_y += VISC * MASS * (pj->vy - pi->vy) / pj->rho * VISC_LAP * (H - dist);
+                fvisc_x += VISC * MASS * (d_vx[j] - d_vx[index_particle]) / d_rho[j] * VISC_LAP * (H - dist);
+                fvisc_y += VISC * MASS * (d_vy[j] - d_vy[index_particle]) / d_rho[j] * VISC_LAP * (H - dist);
             }
         }
-        const float fgrav_x = Gx * MASS / pi->rho;
-        const float fgrav_y = Gy * MASS / pi->rho;
-        pi->fx = fpress_x + fvisc_x + fgrav_x;
-        pi->fy = fpress_y + fvisc_y + fgrav_y;
+        const float fgrav_x = Gx * MASS / d_rho[index_particle];
+        const float fgrav_y = Gy * MASS / d_rho[index_particle];
+        d_fx[index_particle] = fpress_x + fvisc_x + fgrav_x;
+        d_fy[index_particle] = fpress_y + fvisc_y + fgrav_y;
     }
 }
 
-__global__ void integrate( particle_t* d_particles, int n_particles )
+__global__ void integrate( float* d_rho, float* d_x, float * d_y, float* d_vx, float* d_vy, float* d_fx, float* d_fy, int n_particles )
 {
     const int index_particle = threadIdx.x + blockIdx.x * blockDim.x;
     if (index_particle < n_particles) {
-        particle_t *p = &d_particles[index_particle];
+        //particle_t *p = &d_particles[index_particle];
         // forward Euler integration
-        p->vx += DT * p->fx / p->rho;
-        p->vy += DT * p->fy / p->rho;
-        p->x += DT * p->vx;
-        p->y += DT * p->vy;
+        d_vx[index_particle] += DT * d_fx[index_particle] / d_rho[index_particle];
+        d_vy[index_particle] += DT * d_fy[index_particle] / d_rho[index_particle];
+        d_x[index_particle] += DT * d_vx[index_particle];
+        d_y[index_particle] += DT * d_vy[index_particle];
 
         // enforce boundary conditions
-        if (p->x - EPS < 0.0) {
-            p->vx *= BOUND_DAMPING;
-            p->x = EPS;
+        if (d_x[index_particle] - EPS < 0.0) {
+            d_vx[index_particle] *= BOUND_DAMPING;
+            d_x[index_particle] = EPS;
         }
-        if (p->x + EPS > VIEW_WIDTH) {
-            p->vx *= BOUND_DAMPING;
-            p->x = VIEW_WIDTH - EPS;
+        if (d_x[index_particle] + EPS > VIEW_WIDTH) {
+            d_vx[index_particle] *= BOUND_DAMPING;
+            d_x[index_particle] = VIEW_WIDTH - EPS;
         }
-        if (p->y - EPS < 0.0) {
-            p->vy *= BOUND_DAMPING;
-            p->y = EPS;
+        if (d_y[index_particle] - EPS < 0.0) {
+            d_vy[index_particle] *= BOUND_DAMPING;
+            d_y[index_particle] = EPS;
         }
-        if (p->y + EPS > VIEW_HEIGHT) {
-            p->vy *= BOUND_DAMPING;
-            p->y = VIEW_HEIGHT - EPS;
+        if (d_y[index_particle] + EPS > VIEW_HEIGHT) {
+            d_vy[index_particle] *= BOUND_DAMPING;
+            d_y[index_particle] = VIEW_HEIGHT - EPS;
         }
     }
 }
 
-__global__ void reduction(particle_t* d_p, int n, float * d_sums) {
+__global__ void reduction(float* d_vx, float* d_vy, int n, float * d_sums) {
     const int index = threadIdx.x + blockIdx.x * blockDim.x;
     /* reduction of averange velocity */
     if (index < n) {
@@ -264,7 +266,7 @@ __global__ void reduction(particle_t* d_p, int n, float * d_sums) {
         const int lindex = threadIdx.x;
         const int bindex = blockIdx.x;
         int bsize = blockDim.x / 2;
-        temp[lindex] = hypot(d_p[index].vx, d_p[index].vy) / n;
+        temp[lindex] = hypot(d_vx[index], d_vy[index]) / n;
 
         __syncthreads();
         while ( bsize > 0 ) {
@@ -286,12 +288,14 @@ int main(int argc, char **argv)
 {
     srand(1234);
 
-    particles = (particle_t*)malloc(MAX_PARTICLES * sizeof(*particles));
-    assert( particles != NULL );
+    size_t sharedMemPerBlock;
+    cudaDeviceProp deviceProp;
+    cudaGetDeviceProperties(&deviceProp, 0);
+    sharedMemPerBlock = deviceProp.sharedMemPerBlock;
+
 
     int n = DAM_PARTICLES;
     int nsteps = 50;
-    
 
     if (argc > 3) {
         fprintf(stderr, "Usage: %s [nparticles [nsteps]]\n", argv[0]);
@@ -311,16 +315,51 @@ int main(int argc, char **argv)
         return EXIT_FAILURE;
     }
 
-    particle_t *d_particles;
+    pos_x = (float *) malloc(n * sizeof(float)); assert( pos_x != NULL );
+    pos_y = (float *) malloc(n * sizeof(float)); assert( pos_y != NULL );
+    vx = (float *) malloc(n * sizeof(float)); assert( vx != NULL );
+    vy = (float *) malloc(n * sizeof(float)); assert( vy != NULL );
+    fx = (float *) malloc(n * sizeof(float)); assert( fx != NULL );
+    fy = (float *) malloc(n * sizeof(float)); assert( fy != NULL );
+    rho = (float *) malloc(n * sizeof(float)); assert( rho != NULL );
+    p = (float *) malloc(n * sizeof(float)); assert( p != NULL );
+    
+    float *d_pos_x, *d_pos_y;
+    float *d_vx, *d_vy;
+    float *d_fx, *d_fy;
+    float *d_rho, *d_p; 
+
+
     float h_sums[MAX_BLOCK];
-    //float d_sums[(MAX_PARTICLES + BLKDIM - 1) / BLKDIM];
-    //float * h_sums = (float *) malloc(MAX_PARTICLES * sizeof(float));
     float *d_sums;
+
     int block_num = (n + BLKDIM - 1)/BLKDIM;
 
     init_sph(n);
-    cudaMalloc((void **) &d_particles, sizeof(particle_t) * n);
-    cudaMemcpy(d_particles, particles, sizeof(particle_t) * n, cudaMemcpyHostToDevice);
+
+    cudaMalloc((void **) &d_pos_x, sizeof(float) * n);
+    cudaMemcpy(d_pos_x, pos_x, sizeof(float) * n, cudaMemcpyHostToDevice);
+
+    cudaMalloc((void **) &d_pos_y, sizeof(float) * n);
+    cudaMemcpy(d_pos_y, pos_y, sizeof(float) * n, cudaMemcpyHostToDevice);
+
+    cudaMalloc((void **) &d_vx, sizeof(float) * n);
+    cudaMemcpy(d_vx, vx, sizeof(float) * n, cudaMemcpyHostToDevice);
+
+    cudaMalloc((void **) &d_vy, sizeof(float) * n);
+    cudaMemcpy(d_vy, vy, sizeof(float) * n, cudaMemcpyHostToDevice);
+
+    cudaMalloc((void **) &d_fx, sizeof(float) * n);
+    cudaMemcpy(d_fx, fx, sizeof(float) * n, cudaMemcpyHostToDevice);
+
+    cudaMalloc((void **) &d_fy, sizeof(float) * n);
+    cudaMemcpy(d_fy, fy, sizeof(float) * n, cudaMemcpyHostToDevice);
+
+    cudaMalloc((void **) &d_rho, sizeof(float) * n);
+    cudaMemcpy(d_rho, rho, sizeof(float) * n, cudaMemcpyHostToDevice);
+
+    cudaMalloc((void **) &d_p, sizeof(float) * n);
+    cudaMemcpy(d_p, p, sizeof(float) * n, cudaMemcpyHostToDevice);
     
     cudaMalloc((void **) &d_sums, block_num * sizeof(float));
 
@@ -328,19 +367,19 @@ int main(int argc, char **argv)
     
     for (int s=0; s<nsteps; s++) {
         double start = hpc_gettime();
-        compute_density_pressure<<<block_num, BLKDIM>>>(d_particles, n);
+        compute_density_pressure<<<block_num, BLKDIM>>>(d_rho, d_pos_x, d_pos_y, d_p, n);
         
         cudaDeviceSynchronize();
 
-        compute_forces<<<block_num, BLKDIM>>>(d_particles, n);
+        compute_forces<<<block_num, BLKDIM>>>(d_rho, d_pos_x, d_pos_y, d_p, d_vx, d_vy, d_fx, d_fy, n);
 
         cudaDeviceSynchronize();
 
-        integrate<<<block_num, BLKDIM>>>(d_particles, n);
+        integrate<<<block_num, BLKDIM>>>(d_rho, d_pos_x, d_pos_y, d_vx, d_vy, d_fx, d_fy, n);
 
         cudaDeviceSynchronize();
 
-        reduction<<<block_num, BLKDIM>>>(d_particles, n, d_sums);
+        reduction<<<block_num, BLKDIM>>>(d_vx, d_vy, n, d_sums);
         /* the average velocities MUST be computed at each step, even
         if it is not shown (to ensure constant workload per
         iteration) */
@@ -365,7 +404,25 @@ int main(int argc, char **argv)
     double loop_end = hpc_gettime() - loop_start;
     printf("took: %fs\n", loop_end);
 
-    cudaFree(d_particles);
-    free(particles);
+    cudaFree(d_rho);
+    cudaFree(d_pos_x);
+    cudaFree(d_pos_y);
+    cudaFree(d_p);
+    cudaFree(d_vx);
+    cudaFree(d_vy);
+    cudaFree(d_fx);
+    cudaFree(d_fy);
+
+    cudaFree(d_sums);
+
+
+    free(rho);
+    free(pos_x);
+    free(pos_y);
+    free(p);
+    free(vx);
+    free(vy);
+    free(fx);
+    free(fy);
     return EXIT_SUCCESS;
 }

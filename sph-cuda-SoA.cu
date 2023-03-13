@@ -265,10 +265,6 @@ __global__ void reduction(float* d_vx, float* d_vy, int n, float * d_sums, int c
     /* reduction of averange velocity */
     if (index < n) {
 
-        if (cur_step == 10) {
-            printf("[idx: %4d] [vx: %15f] [vy: %15f]\n", index, d_vx[index], d_vy[index]);
-        }
-
         __shared__ float temp[BLKDIM];
         const int lindex = threadIdx.x;
         const int bindex = blockIdx.x;
@@ -391,9 +387,6 @@ int main(int argc, char **argv)
         float avg = 0.0;
         
         for (int i = 0; i < block_num; i++) {
-            if (s == 10) {
-                printf("h_sums[%d] %f\n", i, h_sums[i]);
-            }
             avg += h_sums[i];
         }
         

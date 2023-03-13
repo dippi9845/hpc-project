@@ -164,14 +164,6 @@ __global__ void compute_density_pressure( float* d_rho, float* d_pos_x, float * 
     const int index_particle = threadIdx.x + blockIdx.x * blockDim.x;
     if (index_particle < n_particles) {
 
-        printf("[idx: %4d] [x: %f] [y: %f] [rho: %f] [p: %f]\n",
-                index_particle,
-                d_pos_x[index_particle],
-                d_pos_y[index_particle],
-                d_rho[index_particle],
-                d_p[index_particle]
-                );
-
         const float HSQ = H * H;    // radius^2 for optimization
 
         /* Smoothing kernels defined in Muller and their gradients adapted
@@ -201,18 +193,6 @@ __global__ void compute_forces( float* d_rho, float* d_pos_x, float * d_pos_y, f
        to 2D per "SPH Based Shallow Water Simulation" by Solenthaler
        et al. */
     if (index_particle < n_particles) {
-
-        printf("[idx: %4d] [vx: %f] [vy: %f] [x: %f] [y: %f] [fx: %f] [fy: %f] [rho: %f] [p: %f]\n",
-                index_particle,
-                d_vx[index_particle],
-                d_vy[index_particle],
-                d_pos_x[index_particle],
-                d_pos_y[index_particle],
-                d_fx[index_particle],
-                d_fy[index_particle],
-                d_rho[index_particle],
-                d_p[index_particle]
-                );
 
         const float SPIKY_GRAD = -10.0 / (M_PI * pow(H, 5));
         const float VISC_LAP = 40.0 / (M_PI * pow(H, 5));
@@ -253,16 +233,7 @@ __global__ void integrate( float* d_rho, float* d_x, float * d_y, float* d_vx, f
 {
     const int index_particle = threadIdx.x + blockIdx.x * blockDim.x;
     if (index_particle < n_particles) {
-        printf("[idx: %4d] [vx: %f] [vy: %f] [x: %f] [y: %f] [fx: %f] [fy: %f] [rho: %f]\n",
-                index_particle,
-                d_vx[index_particle],
-                d_vy[index_particle],
-                d_x[index_particle],
-                d_y[index_particle],
-                d_fx[index_particle],
-                d_fy[index_particle],
-                d_rho[index_particle]
-                );
+
         // forward Euler integration
         d_vx[index_particle] += DT * d_fx[index_particle] / d_rho[index_particle];
         d_vy[index_particle] += DT * d_fy[index_particle] / d_rho[index_particle];
@@ -293,8 +264,6 @@ __global__ void reduction(float* d_vx, float* d_vy, int n, float * d_sums) {
     const int index = threadIdx.x + blockIdx.x * blockDim.x;
     /* reduction of averange velocity */
     if (index < n) {
-
-        printf("[idx: %4d] [vx: %f] [vy: %f]\n", index, d_vx[index], d_vy[index]);
 
         __shared__ float temp[BLKDIM];
         const int lindex = threadIdx.x;
@@ -397,25 +366,17 @@ int main(int argc, char **argv)
     for (int s=0; s<nsteps; s++) {
         double start = hpc_gettime();
 
-        printf("\nPressione e Densita:\n");
-
         compute_density_pressure<<<block_num, BLKDIM>>>(d_rho, d_pos_x, d_pos_y, d_p, n);
         
         cudaDeviceSynchronize();
-
-        printf("\nForze:\n");
 
         compute_forces<<<block_num, BLKDIM>>>(d_rho, d_pos_x, d_pos_y, d_p, d_vx, d_vy, d_fx, d_fy, n);
 
         cudaDeviceSynchronize();
 
-        printf("\nIntegrazione\n");
-
         integrate<<<block_num, BLKDIM>>>(d_rho, d_pos_x, d_pos_y, d_vx, d_vy, d_fx, d_fy, n);
 
         cudaDeviceSynchronize();
-
-        printf("\nReduction\n");
 
         reduction<<<block_num, BLKDIM>>>(d_vx, d_vy, n, d_sums);
         /* the average velocities MUST be computed at each step, even

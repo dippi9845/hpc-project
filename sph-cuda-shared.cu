@@ -91,7 +91,6 @@ float *rho, *p;
 int n_particles = 0;    // number of currently active particles
 
 #define SHARED_MEM_PER_BLOCK 49152
-#define FLAOT_PER_SHARED_MEM SHARED_MEM_PER_BLOCK / sizeof(float)
 
 /**
  * Return a random value in [a, b]
@@ -165,10 +164,11 @@ __global__ void compute_density_pressure( float* d_rho, float* d_pos_x, float * 
 {
     const int index_particle = threadIdx.x + blockIdx.x * blockDim.x;
     const int lindex = blockIdx.x;
+    const int FLOAT_PER_SHARED_MEM = SHARED_MEM_PER_BLOCK / sizeof(float);
     
     if (index_particle < n_particles) {
-        __shared__ float sh_pos_x[FLAOT_PER_SHARED_MEM/2];
-        __shared__ float sh_pos_y[FLAOT_PER_SHARED_MEM/2];
+        __shared__ float sh_pos_x[FLOAT_PER_SHARED_MEM/2];
+        __shared__ float sh_pos_y[FLOAT_PER_SHARED_MEM/2];
 
         const float HSQ = H * H;    // radius^2 for optimization
 
@@ -181,8 +181,8 @@ __global__ void compute_density_pressure( float* d_rho, float* d_pos_x, float * 
         
         // per ogni particella memorizzi 2 float
         // numero di volte di cui devi fare una copia nella shared per tutto il kernel
-        const int repetitions = (n_particles * 2 + FLAOT_PER_SHARED_MEM - 1)/ FLAOT_PER_SHARED_MEM;
-        const int max_particles_to_copy = FLAOT_PER_SHARED_MEM / 2;
+        const int repetitions = (n_particles * 2 + FLOAT_PER_SHARED_MEM - 1) / FLOAT_PER_SHARED_MEM;
+        const int max_particles_to_copy = FLOAT_PER_SHARED_MEM / 2;
         
         for (int r = 0; r < repetitions;  r++) {
             int end_copy = max_particles_to_copy;
@@ -205,6 +205,9 @@ __global__ void compute_density_pressure( float* d_rho, float* d_pos_x, float * 
                 const float dx = sh_pos_x[j] - d_pos_x[index_particle];
                 const float dy = sh_pos_y[j] - d_pos_y[index_particle];
                 const float d2 = dx*dx + dy*dy;
+                
+                //if (lindex == 0)
+                //    printf("[x: ] %f [y: ] %f ", sh_pos_x[j], sh_pos_y[j]);
 
                 if (d2 < HSQ) {
                     d_rho[index_particle] += MASS * POLY6 * pow(HSQ - d2, 3.0);
@@ -392,6 +395,7 @@ int main(int argc, char **argv)
     for (int s=0; s<nsteps; s++) {
         double start = hpc_gettime();
         compute_density_pressure<<<block_num, BLKDIM>>>(d_rho, d_pos_x, d_pos_y, d_p, n);
+        printf("\n");
         
         cudaDeviceSynchronize();
 

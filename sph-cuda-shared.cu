@@ -283,8 +283,9 @@ __global__ void compute_forces( float* d_rho, float* d_pos_x, float * d_pos_y, f
 
         if (index_particle < n_particles)  {
             for (int j=0; j< end_copy; j++) {
+                const int j_global = r * max_particles_to_copy + j;
 
-                if (index_particle == r * max_particles_to_copy + j)
+                if (index_particle == j_global)
                     continue;
 
                 const float dx = sh_pos_x[j] - d_pos_x[index_particle];
@@ -295,11 +296,11 @@ __global__ void compute_forces( float* d_rho, float* d_pos_x, float * d_pos_y, f
                     const float norm_dx = dx / dist;
                     const float norm_dy = dy / dist;
                     // compute pressure force contribution
-                    fpress_x += -norm_dx * MASS * (d_p[index_particle] + d_p[j]) / (2 * d_rho[j]) * SPIKY_GRAD * pow(H - dist, 3);
-                    fpress_y += -norm_dy * MASS * (d_p[index_particle] + d_p[j]) / (2 * d_rho[j]) * SPIKY_GRAD * pow(H - dist, 3);
+                    fpress_x += -norm_dx * MASS * (d_p[index_particle] + d_p[j_global]) / (2 * d_rho[j_global]) * SPIKY_GRAD * pow(H - dist, 3);
+                    fpress_y += -norm_dy * MASS * (d_p[index_particle] + d_p[j_global]) / (2 * d_rho[j_global]) * SPIKY_GRAD * pow(H - dist, 3);
                     // compute viscosity force contribution
-                    fvisc_x += VISC * MASS * (d_vx[j] - d_vx[index_particle]) / d_rho[j] * VISC_LAP * (H - dist);
-                    fvisc_y += VISC * MASS * (d_vy[j] - d_vy[index_particle]) / d_rho[j] * VISC_LAP * (H - dist);
+                    fvisc_x += VISC * MASS * (d_vx[j_global] - d_vx[index_particle]) / d_rho[j_global] * VISC_LAP * (H - dist);
+                    fvisc_y += VISC * MASS * (d_vy[j_global] - d_vy[index_particle]) / d_rho[j_global] * VISC_LAP * (H - dist);
                 }
             }
         }
@@ -310,6 +311,11 @@ __global__ void compute_forces( float* d_rho, float* d_pos_x, float * d_pos_y, f
     }
     const float fgrav_x = Gx * MASS / d_rho[index_particle];
     const float fgrav_y = Gy * MASS / d_rho[index_particle];
+
+    if (index_particle < n_particles) {
+        printf("[idx: %d] [rho %f]\n", index_particle, d_rho[index_particle]);
+    }
+    
     d_fx[index_particle] = fpress_x + fvisc_x + fgrav_x;
     d_fy[index_particle] = fpress_y + fvisc_y + fgrav_y;
     

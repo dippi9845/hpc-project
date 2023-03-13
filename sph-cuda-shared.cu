@@ -222,33 +222,58 @@ __global__ void compute_forces( float* d_rho, float* d_pos_x, float * d_pos_y, f
     /* Smoothing kernels defined in Muller and their gradients adapted
        to 2D per "SPH Based Shallow Water Simulation" by Solenthaler
        et al. */
+    const int lindex = threadIdx.x;
+    const int FLOAT_PER_SHARED_MEM = SHARED_MEM_PER_BLOCK / sizeof(float);
     if (index_particle < n_particles) {
+
         const float SPIKY_GRAD = -10.0 / (M_PI * pow(H, 5));
         const float VISC_LAP = 40.0 / (M_PI * pow(H, 5));
         const float EPS = 1e-6;
 
-        //particle_t *pi = &d_particles[index_particle];
         float fpress_x = 0.0, fpress_y = 0.0;
         float fvisc_x = 0.0, fvisc_y = 0.0;
 
-        for (int j=0; j< n_particles; j++) {
+        __shared__ float sh_pos_x[FLOAT_PER_SHARED_MEM/2];
+        __shared__ float sh_pos_y[FLOAT_PER_SHARED_MEM/2];
 
-            if (index_particle == j)
-                continue;
+        const int repetitions = (n_particles * 2 + FLOAT_PER_SHARED_MEM - 1) / FLOAT_PER_SHARED_MEM;
+        const int max_particles_to_copy = FLOAT_PER_SHARED_MEM / 2;
+        
+        for (int r = 0; r < repetitions;  r++) {
+            int end_copy = max_particles_to_copy;
 
-            const float dx = d_pos_x[j] - d_pos_x[index_particle];
-            const float dy = d_pos_y[j] - d_pos_y[index_particle];
-            const float dist = hypotf(dx, dy) + EPS; // avoids division by zero later on
+            if (r == repetitions - 1) {
+                end_copy = n_particles - max_particles_to_copy * r;
+            }
 
-            if (dist < H) {
-                const float norm_dx = dx / dist;
-                const float norm_dy = dy / dist;
-                // compute pressure force contribution
-                fpress_x += -norm_dx * MASS * (d_p[index_particle] + d_p[j]) / (2 * d_rho[j]) * SPIKY_GRAD * pow(H - dist, 3);
-                fpress_y += -norm_dy * MASS * (d_p[index_particle] + d_p[j]) / (2 * d_rho[j]) * SPIKY_GRAD * pow(H - dist, 3);
-                // compute viscosity force contribution
-                fvisc_x += VISC * MASS * (d_vx[j] - d_vx[index_particle]) / d_rho[j] * VISC_LAP * (H - dist);
-                fvisc_y += VISC * MASS * (d_vy[j] - d_vy[index_particle]) / d_rho[j] * VISC_LAP * (H - dist);
+            int copy_shift = 0;
+            while (copy_shift * BLKDIM + lindex < end_copy) {
+                sh_pos_x[copy_shift * BLKDIM + lindex] = d_pos_x[r * max_particles_to_copy + copy_shift * BLKDIM + lindex];
+                sh_pos_y[copy_shift * BLKDIM + lindex] = d_pos_y[r * max_particles_to_copy + copy_shift * BLKDIM + lindex];
+                copy_shift++;
+            }
+
+            __syncthreads();
+
+            for (int j=0; j< end_copy; j++) {
+
+                if (index_particle == j)
+                    continue;
+
+                const float dx = sh_pos_x[j] - d_pos_x[index_particle];
+                const float dy = sh_pos_y[j] - d_pos_y[index_particle];
+                const float dist = hypotf(dx, dy) + EPS; // avoids division by zero later on
+
+                if (dist < H) {
+                    const float norm_dx = dx / dist;
+                    const float norm_dy = dy / dist;
+                    // compute pressure force contribution
+                    fpress_x += -norm_dx * MASS * (d_p[index_particle] + d_p[j]) / (2 * d_rho[j]) * SPIKY_GRAD * pow(H - dist, 3);
+                    fpress_y += -norm_dy * MASS * (d_p[index_particle] + d_p[j]) / (2 * d_rho[j]) * SPIKY_GRAD * pow(H - dist, 3);
+                    // compute viscosity force contribution
+                    fvisc_x += VISC * MASS * (d_vx[j] - d_vx[index_particle]) / d_rho[j] * VISC_LAP * (H - dist);
+                    fvisc_y += VISC * MASS * (d_vy[j] - d_vy[index_particle]) / d_rho[j] * VISC_LAP * (H - dist);
+                }
             }
         }
         const float fgrav_x = Gx * MASS / d_rho[index_particle];

@@ -160,7 +160,7 @@ void init_sph( int n )
  ** You may parallelize the following four functions
  **/
 
-__global__ void compute_density_pressure( float* d_rho, float* d_pos_x, float * d_pos_y, float * d_p, int n_particles)
+__global__ void compute_density_pressure( float* d_rho, float* d_pos_x, float * d_pos_y, float * d_p, int n_particles, int cur_step )
 {
     const int index_particle = threadIdx.x + blockIdx.x * blockDim.x;
     const int lindex = threadIdx.x;
@@ -222,7 +222,7 @@ __global__ void compute_density_pressure( float* d_rho, float* d_pos_x, float * 
     }
 }
 
-__global__ void compute_forces( float* d_rho, float* d_pos_x, float * d_pos_y, float * d_p, float* d_vx, float* d_vy, float* d_fx, float* d_fy, int n_particles )
+__global__ void compute_forces( float* d_rho, float* d_pos_x, float * d_pos_y, float * d_p, float* d_vx, float* d_vy, float* d_fx, float* d_fy, int n_particles, int cur_step )
 {
     const int index_particle = threadIdx.x + blockIdx.x * blockDim.x;
     /* Smoothing kernels defined in Muller and their gradients adapted
@@ -303,7 +303,7 @@ __global__ void compute_forces( float* d_rho, float* d_pos_x, float * d_pos_y, f
     
 }
 
-__global__ void integrate( float* d_rho, float* d_x, float * d_y, float* d_vx, float* d_vy, float* d_fx, float* d_fy, int n_particles )
+__global__ void integrate( float* d_rho, float* d_x, float * d_y, float* d_vx, float* d_vy, float* d_fx, float* d_fy, int n_particles, int cur_step )
 {
     const int index_particle = threadIdx.x + blockIdx.x * blockDim.x;
 
@@ -335,7 +335,7 @@ __global__ void integrate( float* d_rho, float* d_x, float * d_y, float* d_vx, f
     }
 }
 
-__global__ void reduction(float* d_vx, float* d_vy, int n, float * d_sums) {
+__global__ void reduction(float* d_vx, float* d_vy, int n, float * d_sums, int cur_step) {
     const int index = threadIdx.x + blockIdx.x * blockDim.x;
 
 
@@ -442,21 +442,21 @@ int main(int argc, char **argv)
     for (int s=0; s<nsteps; s++) {
         double start = hpc_gettime();
 
-        compute_density_pressure<<<block_num, BLKDIM>>>(d_rho, d_pos_x, d_pos_y, d_p, n);
+        compute_density_pressure<<<block_num, BLKDIM>>>(d_rho, d_pos_x, d_pos_y, d_p, n, s);
         
         cudaDeviceSynchronize();
 
-        compute_forces<<<block_num, BLKDIM>>>(d_rho, d_pos_x, d_pos_y, d_p, d_vx, d_vy, d_fx, d_fy, n);
+        compute_forces<<<block_num, BLKDIM>>>(d_rho, d_pos_x, d_pos_y, d_p, d_vx, d_vy, d_fx, d_fy, n, s);
 
         cudaDeviceSynchronize();
 
         cudaMemcpy(rho, d_rho, sizeof(float) * n, cudaMemcpyDeviceToHost);
 
-        integrate<<<block_num, BLKDIM>>>(d_rho, d_pos_x, d_pos_y, d_vx, d_vy, d_fx, d_fy, n);
+        integrate<<<block_num, BLKDIM>>>(d_rho, d_pos_x, d_pos_y, d_vx, d_vy, d_fx, d_fy, n, s);
 
         cudaDeviceSynchronize();
 
-        reduction<<<block_num, BLKDIM>>>(d_vx, d_vy, n, d_sums);
+        reduction<<<block_num, BLKDIM>>>(d_vx, d_vy, n, d_sums, s);
         /* the average velocities MUST be computed at each step, even
         if it is not shown (to ensure constant workload per
         iteration) */

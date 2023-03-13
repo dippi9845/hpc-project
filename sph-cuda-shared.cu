@@ -254,26 +254,32 @@ __global__ void compute_forces( float* d_rho, float* d_pos_x, float * d_pos_y, f
 
         __syncthreads();
 
-        for (int j=0; j< end_copy; j++) {
+        if (index_particle < n_particles)  {
+            for (int j=0; j< end_copy; j++) {
 
-            if (index_particle == r * max_particles_to_copy + j)
-                continue;
+                if (index_particle == r * max_particles_to_copy + j)
+                    continue;
 
-            const float dx = sh_pos_x[j] - d_pos_x[index_particle];
-            const float dy = sh_pos_y[j] - d_pos_y[index_particle];
-            const float dist = hypotf(dx, dy) + EPS; // avoids division by zero later on
+                const float dx = sh_pos_x[j] - d_pos_x[index_particle];
+                const float dy = sh_pos_y[j] - d_pos_y[index_particle];
+                const float dist = hypotf(dx, dy) + EPS; // avoids division by zero later on
 
-            if (dist < H) {
-                const float norm_dx = dx / dist;
-                const float norm_dy = dy / dist;
-                // compute pressure force contribution
-                fpress_x += -norm_dx * MASS * (d_p[index_particle] + d_p[j]) / (2 * d_rho[j]) * SPIKY_GRAD * pow(H - dist, 3);
-                fpress_y += -norm_dy * MASS * (d_p[index_particle] + d_p[j]) / (2 * d_rho[j]) * SPIKY_GRAD * pow(H - dist, 3);
-                // compute viscosity force contribution
-                fvisc_x += VISC * MASS * (d_vx[j] - d_vx[index_particle]) / d_rho[j] * VISC_LAP * (H - dist);
-                fvisc_y += VISC * MASS * (d_vy[j] - d_vy[index_particle]) / d_rho[j] * VISC_LAP * (H - dist);
+                if (dist < H) {
+                    const float norm_dx = dx / dist;
+                    const float norm_dy = dy / dist;
+                    // compute pressure force contribution
+                    fpress_x += -norm_dx * MASS * (d_p[index_particle] + d_p[j]) / (2 * d_rho[j]) * SPIKY_GRAD * pow(H - dist, 3);
+                    fpress_y += -norm_dy * MASS * (d_p[index_particle] + d_p[j]) / (2 * d_rho[j]) * SPIKY_GRAD * pow(H - dist, 3);
+                    // compute viscosity force contribution
+                    fvisc_x += VISC * MASS * (d_vx[j] - d_vx[index_particle]) / d_rho[j] * VISC_LAP * (H - dist);
+                    fvisc_y += VISC * MASS * (d_vy[j] - d_vy[index_particle]) / d_rho[j] * VISC_LAP * (H - dist);
+                }
             }
         }
+
+        __syncthreads();
+
+
     }
     const float fgrav_x = Gx * MASS / d_rho[index_particle];
     const float fgrav_y = Gy * MASS / d_rho[index_particle];

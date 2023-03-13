@@ -252,6 +252,10 @@ __global__ void compute_forces( float* d_rho, float* d_pos_x, float * d_pos_y, f
     const int max_particles_to_copy = FLOAT_PER_SHARED_MEM / 2;
     
     if (index_particle < n_particles) {
+        if (index_particle == 0) {
+            printf("[rho_ptr %p]\n", d_rho);
+        }
+        
         printf("[idx: %4d] [vx: %f] [vy: %f] [x: %f] [y: %f] [fx: %f] [fy: %f] [rho: %f] [p: %f]\n",
                 index_particle,
                 d_vx[index_particle],
@@ -309,21 +313,29 @@ __global__ void compute_forces( float* d_rho, float* d_pos_x, float * d_pos_y, f
 
 
     }
-    const float fgrav_x = Gx * MASS / d_rho[index_particle];
-    const float fgrav_y = Gy * MASS / d_rho[index_particle];
 
     if (index_particle < n_particles) {
-        printf("[idx: %d] [rho %f]\n", index_particle, d_rho[index_particle]);
+        const float fgrav_x = Gx * MASS / d_rho[index_particle];
+        const float fgrav_y = Gy * MASS / d_rho[index_particle];
+
+        d_fx[index_particle] = fpress_x + fvisc_x + fgrav_x;
+        d_fy[index_particle] = fpress_y + fvisc_y + fgrav_y;
     }
     
-    d_fx[index_particle] = fpress_x + fvisc_x + fgrav_x;
-    d_fy[index_particle] = fpress_y + fvisc_y + fgrav_y;
     
 }
 
 __global__ void integrate( float* d_rho, float* d_x, float * d_y, float* d_vx, float* d_vy, float* d_fx, float* d_fy, int n_particles )
 {
     const int index_particle = threadIdx.x + blockIdx.x * blockDim.x;
+
+    if (index_particle == 0) {
+        printf("[rho_ptr %p]\n", d_rho);
+        for (int i = 0; i < n_particles; i++) {
+            printf("[idx %4d] [i: %4d] [rho: %f]\n", index_particle, i, d_rho[i]);
+        }
+    }
+
     if (index_particle < n_particles) {
         printf("[idx: %4d] [vx: %f] [vy: %f] [x: %f] [y: %f] [fx: %f] [fy: %f] [rho: %f]\n",
                 index_particle,
@@ -481,6 +493,13 @@ int main(int argc, char **argv)
         compute_forces<<<block_num, BLKDIM>>>(d_rho, d_pos_x, d_pos_y, d_p, d_vx, d_vy, d_fx, d_fy, n);
 
         cudaDeviceSynchronize();
+
+        cudaMemcpy(rho, d_rho, sizeof(float) * n, cudaMemcpyDeviceToHost);
+        printf("[host]\n");
+
+        for (int i = 0; i < n; i++) {
+            printf("[rho[%d] %f]\n", i, rho[i]);
+        }
 
         printf("\nIntegrazione\n");
 

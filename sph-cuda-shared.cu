@@ -257,7 +257,7 @@ __global__ void compute_forces( float* d_rho, float* d_pos_x, float * d_pos_y, f
 
             for (int j=0; j< end_copy; j++) {
 
-                if (index_particle == j)
+                if (index_particle == r * max_particles_to_copy + j)
                     continue;
 
                 const float dx = sh_pos_x[j] - d_pos_x[index_particle];

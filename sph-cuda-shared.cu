@@ -457,17 +457,26 @@ int main(int argc, char **argv)
     
     for (int s=0; s<nsteps; s++) {
         double start = hpc_gettime();
+
+        printf("Pressione e Densita:\n");
+
         compute_density_pressure<<<block_num, BLKDIM>>>(d_rho, d_pos_x, d_pos_y, d_p, n);
         
         cudaDeviceSynchronize();
+
+        printf("Forze:\n");
 
         compute_forces<<<block_num, BLKDIM>>>(d_rho, d_pos_x, d_pos_y, d_p, d_vx, d_vy, d_fx, d_fy, n);
 
         cudaDeviceSynchronize();
 
+        printf("Integrazione");
+
         integrate<<<block_num, BLKDIM>>>(d_rho, d_pos_x, d_pos_y, d_vx, d_vy, d_fx, d_fy, n);
 
         cudaDeviceSynchronize();
+
+        printf("Reduction");
 
         reduction<<<block_num, BLKDIM>>>(d_vx, d_vy, n, d_sums);
         /* the average velocities MUST be computed at each step, even

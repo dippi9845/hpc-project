@@ -250,16 +250,16 @@ __global__ void compute_forces( float* d_rho, float* d_pos_x, float * d_pos_y, f
     const int max_particles_to_copy = FLOAT_PER_SHARED_MEM / 2;
 
     printf("[idx: %4d] [vx: %f] [vy: %f] [x: %f] [y: %f] [fx: %f] [fy: %f] [rho: %f] [p: %f]\n",
-                index_particle,
-                d_vx[index_particle],
-                d_vy[index_particle],
-                d_pos_x[index_particle],
-                d_pos_y[index_particle],
-                d_fx[index_particle],
-                d_fy[index_particle],
-                d_rho[index_particle],
-                d_p[index_particle]
-                );
+            index_particle,
+            d_vx[index_particle],
+            d_vy[index_particle],
+            d_pos_x[index_particle],
+            d_pos_y[index_particle],
+            d_fx[index_particle],
+            d_fy[index_particle],
+            d_rho[index_particle],
+            d_p[index_particle]
+            );
     
     for (int r = 0; r < repetitions;  r++) {
         int end_copy = max_particles_to_copy;

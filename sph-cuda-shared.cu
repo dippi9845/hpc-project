@@ -337,21 +337,16 @@ __global__ void integrate( float* d_rho, float* d_x, float * d_y, float* d_vx, f
 
 __global__ void reduction(float* d_vx, float* d_vy, int n, float * d_sums, int cur_step) {
     const int index = threadIdx.x + blockIdx.x * blockDim.x;
-
+    __shared__ float temp[BLKDIM];
+    temp[threadIdx.x] = 0.f;
 
     /* reduction of averange velocity */
     if (index < n) {
 
-        
-        __shared__ float temp[BLKDIM];
         const int lindex = threadIdx.x;
         const int bindex = blockIdx.x;
         int bsize = blockDim.x / 2;
         temp[lindex] = hypot(d_vx[index], d_vy[index]) / n;
-        
-        if (cur_step == 10 && blockIdx.x == 1) {
-            printf("[idx: %4d] [vx: %15f] [vy: %15f] [temp: %15f]", index, d_vx[index], d_vy[index], temp[lindex]);
-        }
 
         __syncthreads();
         while ( bsize > 0 ) {
@@ -363,10 +358,6 @@ __global__ void reduction(float* d_vx, float* d_vy, int n, float * d_sums, int c
         }
         if ( 0 == lindex ) {
             d_sums[bindex] = temp[0];
-        }
-
-        if (cur_step == 10 && blockIdx.x == 1) {
-            printf(" [d_sums ind: %4d] [d_sums: %15f]\n", bindex, d_sums[bindex]);
         }
     }
 }

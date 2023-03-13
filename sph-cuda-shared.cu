@@ -341,12 +341,17 @@ __global__ void reduction(float* d_vx, float* d_vy, int n, float * d_sums, int c
 
     /* reduction of averange velocity */
     if (index < n) {
+
         
         __shared__ float temp[BLKDIM];
         const int lindex = threadIdx.x;
         const int bindex = blockIdx.x;
         int bsize = blockDim.x / 2;
         temp[lindex] = hypot(d_vx[index], d_vy[index]) / n;
+        
+        if (cur_step == 10 && blockIdx.x == 1) {
+            printf("[idx: %4d] [vx: %15f] [vy: %15f] [temp: %15f]", index, d_vx[index], d_vy[index], temp[lindex]);
+        }
 
         __syncthreads();
         while ( bsize > 0 ) {
@@ -358,6 +363,10 @@ __global__ void reduction(float* d_vx, float* d_vy, int n, float * d_sums, int c
         }
         if ( 0 == lindex ) {
             d_sums[bindex] = temp[0];
+        }
+
+        if (cur_step == 10 && blockIdx.x == 1) {
+            printf(" [d_sums ind: %4d] [d_sums: %15f]\n", bindex, d_sums[bindex]);
         }
     }
 }
@@ -464,8 +473,12 @@ int main(int argc, char **argv)
         
         float avg = 0.0;
         
-        for (int i = 0; i < block_num; i++)
+        for (int i = 0; i < block_num; i++) {
+            if (s == 10) {
+                printf("h_sums[%d] %f\n", i, h_sums[i]);
+            }
             avg += h_sums[i];
+        }
         
         double end = hpc_gettime() - start;
 

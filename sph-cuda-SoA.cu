@@ -260,10 +260,14 @@ __global__ void integrate( float* d_rho, float* d_x, float * d_y, float* d_vx, f
     }
 }
 
-__global__ void reduction(float* d_vx, float* d_vy, int n, float * d_sums) {
+__global__ void reduction(float* d_vx, float* d_vy, int n, float * d_sums, int cur_step) {
     const int index = threadIdx.x + blockIdx.x * blockDim.x;
     /* reduction of averange velocity */
     if (index < n) {
+
+        if (cur_step == 10) {
+            printf("[idx: %4d] [vx: %15f] [vy: %15f]\n", index, d_vx[index], d_vy[index]);
+        }
 
         __shared__ float temp[BLKDIM];
         const int lindex = threadIdx.x;
@@ -378,7 +382,7 @@ int main(int argc, char **argv)
 
         cudaDeviceSynchronize();
 
-        reduction<<<block_num, BLKDIM>>>(d_vx, d_vy, n, d_sums);
+        reduction<<<block_num, BLKDIM>>>(d_vx, d_vy, n, d_sums, s);
         /* the average velocities MUST be computed at each step, even
         if it is not shown (to ensure constant workload per
         iteration) */
@@ -386,8 +390,12 @@ int main(int argc, char **argv)
         
         float avg = 0.0;
         
-        for (int i = 0; i < block_num; i++)
+        for (int i = 0; i < block_num; i++) {
+            if (s == 10) {
+                printf("h_sums[%d] %f\n", i, h_sums[i]);
+            }
             avg += h_sums[i];
+        }
         
         double end = hpc_gettime() - start;
 

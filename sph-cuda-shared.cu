@@ -465,9 +465,6 @@ int main(int argc, char **argv)
         float avg = 0.0;
         
         for (int i = 0; i < block_num; i++) {
-            if (s == 10) {
-                printf("h_sums[%d] %f\n", i, h_sums[i]);
-            }
             avg += h_sums[i];
         }
         

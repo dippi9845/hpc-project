@@ -214,6 +214,8 @@ __global__ void compute_density_pressure( float* d_rho, float* d_pos_x, float * 
 
             d_p[index_particle] = GAS_CONST * (d_rho[index_particle] - REST_DENS);
         }
+
+        __syncthreads();
     }
 }
 

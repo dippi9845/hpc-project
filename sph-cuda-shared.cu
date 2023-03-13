@@ -186,15 +186,18 @@ __global__ void compute_density_pressure( float* d_rho, float* d_pos_x, float * 
     
     for (int r = 0; r < repetitions;  r++) {
         int end_copy = max_particles_to_copy;
+        const int global_map = r * max_particles_to_copy;
 
         if (r == repetitions - 1) {
-            end_copy = n_particles - max_particles_to_copy * r;
+            end_copy = n_particles - global_map;
         }
 
         int copy_shift = 0;
         while (copy_shift * BLKDIM + lindex < end_copy) {
-            sh_pos_x[copy_shift * BLKDIM + lindex] = d_pos_x[r * max_particles_to_copy + copy_shift * BLKDIM + lindex];
-            sh_pos_y[copy_shift * BLKDIM + lindex] = d_pos_y[r * max_particles_to_copy + copy_shift * BLKDIM + lindex];
+            const int local_index = copy_shift * BLKDIM + lindex;
+
+            sh_pos_x[local_index] = d_pos_x[global_map + local_index];
+            sh_pos_y[local_index] = d_pos_y[global_map + local_index];
             copy_shift++;
         }
 
@@ -243,15 +246,18 @@ __global__ void compute_forces( float* d_rho, float* d_pos_x, float * d_pos_y, f
     
     for (int r = 0; r < repetitions;  r++) {
         int end_copy = max_particles_to_copy;
+        const int global_map = r * max_particles_to_copy;
 
         if (r == repetitions - 1) {
-            end_copy = n_particles - max_particles_to_copy * r;
+            end_copy = n_particles - global_map;
         }
 
         int copy_shift = 0;
         while (copy_shift * BLKDIM + lindex < end_copy) {
-            sh_pos_x[copy_shift * BLKDIM + lindex] = d_pos_x[r * max_particles_to_copy + copy_shift * BLKDIM + lindex];
-            sh_pos_y[copy_shift * BLKDIM + lindex] = d_pos_y[r * max_particles_to_copy + copy_shift * BLKDIM + lindex];
+            const int local_index = copy_shift * BLKDIM + lindex;
+
+            sh_pos_x[local_index] = d_pos_x[global_map + local_index];
+            sh_pos_y[local_index] = d_pos_y[global_map + local_index];
             copy_shift++;
         }
 
@@ -259,7 +265,7 @@ __global__ void compute_forces( float* d_rho, float* d_pos_x, float * d_pos_y, f
 
         if (index_particle < n_particles)  {
             for (int j=0; j< end_copy; j++) {
-                const int j_global = r * max_particles_to_copy + j;
+                const int j_global = global_map + j;
 
                 if (index_particle == j_global)
                     continue;

@@ -166,40 +166,41 @@ __global__ void compute_density_pressure( float* d_rho, float* d_pos_x, float * 
     const int lindex = threadIdx.x;
     const int FLOAT_PER_SHARED_MEM = SHARED_MEM_PER_BLOCK / sizeof(float);
     
-    if (index_particle < n_particles) {
-        __shared__ float sh_pos_x[FLOAT_PER_SHARED_MEM/2];
-        __shared__ float sh_pos_y[FLOAT_PER_SHARED_MEM/2];
+    
+    __shared__ float sh_pos_x[FLOAT_PER_SHARED_MEM/2];
+    __shared__ float sh_pos_y[FLOAT_PER_SHARED_MEM/2];
 
-        const float HSQ = H * H;    // radius^2 for optimization
+    const float HSQ = H * H;    // radius^2 for optimization
 
-        /* Smoothing kernels defined in Muller and their gradients adapted
-        to 2D per "SPH Based Shallow Water Simulation" by Solenthaler
-        et al. */
-        const float POLY6 = 4.0 / (M_PI * pow(H, 8));
+    /* Smoothing kernels defined in Muller and their gradients adapted
+    to 2D per "SPH Based Shallow Water Simulation" by Solenthaler
+    et al. */
+    const float POLY6 = 4.0 / (M_PI * pow(H, 8));
 
-        d_rho[index_particle] = 0.0;
-        
-        // per ogni particella memorizzi 2 float
-        // numero di volte di cui devi fare una copia nella shared per tutto il kernel
-        const int repetitions = (n_particles * 2 + FLOAT_PER_SHARED_MEM - 1) / FLOAT_PER_SHARED_MEM;
-        const int max_particles_to_copy = FLOAT_PER_SHARED_MEM / 2;
-        
-        for (int r = 0; r < repetitions;  r++) {
-            int end_copy = max_particles_to_copy;
+    d_rho[index_particle] = 0.0;
+    
+    // per ogni particella memorizzi 2 float
+    // numero di volte di cui devi fare una copia nella shared per tutto il kernel
+    const int repetitions = (n_particles * 2 + FLOAT_PER_SHARED_MEM - 1) / FLOAT_PER_SHARED_MEM;
+    const int max_particles_to_copy = FLOAT_PER_SHARED_MEM / 2;
+    
+    for (int r = 0; r < repetitions;  r++) {
+        int end_copy = max_particles_to_copy;
 
-            if (r == repetitions - 1) {
-                end_copy = n_particles - max_particles_to_copy * r;
-            }
+        if (r == repetitions - 1) {
+            end_copy = n_particles - max_particles_to_copy * r;
+        }
 
-            int copy_shift = 0;
-            while (copy_shift * BLKDIM + lindex < end_copy) {
-                sh_pos_x[copy_shift * BLKDIM + lindex] = d_pos_x[r * max_particles_to_copy + copy_shift * BLKDIM + lindex];
-                sh_pos_y[copy_shift * BLKDIM + lindex] = d_pos_y[r * max_particles_to_copy + copy_shift * BLKDIM + lindex];
-                copy_shift++;
-            }
+        int copy_shift = 0;
+        while (copy_shift * BLKDIM + lindex < end_copy) {
+            sh_pos_x[copy_shift * BLKDIM + lindex] = d_pos_x[r * max_particles_to_copy + copy_shift * BLKDIM + lindex];
+            sh_pos_y[copy_shift * BLKDIM + lindex] = d_pos_y[r * max_particles_to_copy + copy_shift * BLKDIM + lindex];
+            copy_shift++;
+        }
 
-            __syncthreads();
+        __syncthreads();
 
+        if (index_particle < n_particles) {
             for (int j = 0; j < end_copy; j++) {
 
                 const float dx = sh_pos_x[j] - d_pos_x[index_particle];

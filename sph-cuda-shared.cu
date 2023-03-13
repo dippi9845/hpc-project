@@ -90,6 +90,8 @@ float *rho, *p;
 
 int n_particles = 0;    // number of currently active particles
 
+#define SHARED_MEM_PER_BLOCK 49152
+#define FLAOT_PER_SHARED_MEM SHARED_MEM_PER_BLOCK / sizeof(float)
 
 /**
  * Return a random value in [a, b]
@@ -159,11 +161,14 @@ void init_sph( int n )
  ** You may parallelize the following four functions
  **/
 
-__global__ void compute_density_pressure( float* d_rho, float* d_pos_x, float * d_pos_y, float * d_p, int n_particles, size_t shared_mem_bytes)
+__global__ void compute_density_pressure( float* d_rho, float* d_pos_x, float * d_pos_y, float * d_p, int n_particles)
 {
     const int index_particle = threadIdx.x + blockIdx.x * blockDim.x;
+    const int lindex = blockIdx.x;
+    
     if (index_particle < n_particles) {
-        __shared__ float pos[shared_mem_bytes];
+        __shared__ float sh_pos_x[FLAOT_PER_SHARED_MEM/2];
+        __shared__ float sh_pos_y[FLAOT_PER_SHARED_MEM/2];
 
         const float HSQ = H * H;    // radius^2 for optimization
 
@@ -173,17 +178,40 @@ __global__ void compute_density_pressure( float* d_rho, float* d_pos_x, float * 
         const float POLY6 = 4.0 / (M_PI * pow(H, 8));
 
         d_rho[index_particle] = 0.0;
-        for (int j=0; j< n_particles; j++) {
+        
+        // per ogni particella memorizzi 2 float
+        // numero di volte di cui devi fare una copia nella shared per tutto il kernel
+        const int repetitions = (n_particles * 2 + FLAOT_PER_SHARED_MEM - 1)/ FLAOT_PER_SHARED_MEM;
+        const int max_particles_to_copy = FLAOT_PER_SHARED_MEM / 2;
+        
+        for (int r = 0; r < repetitions;  r++) {
+            int end_copy = max_particles_to_copy;
 
-            const float dx = d_pos_x[j] - d_pos_x[index_particle];
-            const float dy = d_pos_y[j] - d_pos_y[index_particle];
-            const float d2 = dx*dx + dy*dy;
-
-            if (d2 < HSQ) {
-                d_rho[index_particle] += MASS * POLY6 * pow(HSQ - d2, 3.0);
+            if (r == repetitions - 1) {
+                end_copy = n_particles - max_particles_to_copy * r;
             }
+
+            int copy_shift = 0;
+            while (copy_shift * BLKDIM + lindex < end_copy) {
+                sh_pos_x[copy_shift * BLKDIM + lindex] = d_pos_x[r * max_particles_to_copy + copy_shift * BLKDIM + lindex];
+                sh_pos_y[copy_shift * BLKDIM + lindex] = d_pos_y[r * max_particles_to_copy + copy_shift * BLKDIM + lindex];
+                copy_shift++;
+            }
+
+            __syncthreads();
+            
+            for (int j = 0; j < end_copy; j++) {
+
+                const float dx = sh_pos_x[j] - d_pos_x[index_particle];
+                const float dy = sh_pos_y[j] - d_pos_y[index_particle];
+                const float d2 = dx*dx + dy*dy;
+
+                if (d2 < HSQ) {
+                    d_rho[index_particle] += MASS * POLY6 * pow(HSQ - d2, 3.0);
+                }
+            }
+            d_p[index_particle] = GAS_CONST * (d_rho[index_particle] - REST_DENS);
         }
-        d_p[index_particle] = GAS_CONST * (d_rho[index_particle] - REST_DENS);
     }
 }
 
@@ -290,12 +318,6 @@ int main(int argc, char **argv)
 {
     srand(1234);
 
-    size_t sharedMemPerBlock;
-    cudaDeviceProp deviceProp;
-    cudaGetDeviceProperties(&deviceProp, 0);
-    sharedMemPerBlock = deviceProp.sharedMemPerBlock;
-
-
     int n = DAM_PARTICLES;
     int nsteps = 50;
 
@@ -369,7 +391,7 @@ int main(int argc, char **argv)
     
     for (int s=0; s<nsteps; s++) {
         double start = hpc_gettime();
-        compute_density_pressure<<<block_num, BLKDIM>>>(d_rho, d_pos_x, d_pos_y, d_p, n, sharedMemPerBlock);
+        compute_density_pressure<<<block_num, BLKDIM>>>(d_rho, d_pos_x, d_pos_y, d_p, n);
         
         cudaDeviceSynchronize();
 

@@ -84,6 +84,18 @@ echo "fine omp simd"
 
 echo "Inizio cuda"
 
-test_loop "sph-cuda" "cuda"
+#test_loop "sph-cuda" "cuda"
+
+echo "Fine cuda"
+
+echo "Inizio cuda"
+
+#test_loop "sph-cuda-SoA" "cuda-SoA"
+
+echo "Fine cuda"
+
+echo "Inizio cuda"
+
+#test_loop "sph-cuda-shared" "cuda-shared"
 
 echo "Fine cuda"

@@ -364,7 +364,6 @@ int main(int argc, char **argv)
     double loop_start = hpc_gettime();
     
     for (int s=0; s<nsteps; s++) {
-        double start = hpc_gettime();
 
         compute_density_pressure<<<block_num, BLKDIM>>>(d_rho, d_pos_x, d_pos_y, d_p, n);
         
@@ -390,19 +389,10 @@ int main(int argc, char **argv)
             avg += h_sums[i];
         }
         
-        double end = hpc_gettime() - start;
-
-        if (s % PRINT_AVERANGE == 0){
-            printf("step %5d, avgV=%f, took: %fs\n", s, avg, end);
-            //printf("%f;", avg);
-            //for (int i = 0; i < MAX_BLOCK; i++)
-            //    printf("%f ", h_sums[i]);
-            //printf("\n");
-        }
     }
 
     double loop_end = hpc_gettime() - loop_start;
-    printf("took: %fs\n", loop_end);
+    printf("%f\n", loop_end);
 
     cudaFree(d_rho);
     cudaFree(d_pos_x);

@@ -10,9 +10,10 @@ OMP:
     4 - si potrebbe provare a far creare solo un pool di thread con il master e distruggendo il ciclo for
 
 SIMD:
-    1 - come ho organizzato i dati
+    1 - come ho organizzato i dati (i vicini)
     2 - parallelizzato con un vector di 16 byte solo la pressure
     2.1 - parallelizzato con un vecetor di 32 byte solo la pressure
+    3 - Provo a trasformalo in SoA
 
 SIMD-OMP:
     1 - non più un'array ma una matrice
@@ -21,3 +22,9 @@ SIMD-OMP:
     3 - proviamo con i low level sse
 
 fare le varianze delle varie versioni
+
+CUDA:
+    1 - semplice trasformazione in cuda con reduction
+    2 - provo con l'atomic add
+    3 - provo a trasformarlo in SoA
+    4 - provo ad usare la shared memory

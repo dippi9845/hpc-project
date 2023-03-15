@@ -14,12 +14,17 @@ SIMD:
     2 - parallelizzato con un vector di 16 byte solo la pressure
     2.1 - parallelizzato con un vecetor di 32 byte solo la pressure
     3 - Provo a trasformalo in SoA
+    4 - Simd per Accumulo
+    5 - provare con la branchless
 
 SIMD-OMP:
     1 - non più un'array ma una matrice
     1.2 - dire che i vettori del gcc scombinano un po i conti, ho scoperto che la versione simd del calcolo della pressione e densità viene sballato
     2 - la calusola di openmp non funziona
     3 - proviamo con i low level sse
+    4 - Provo a trasformalo in SoA
+    5 - Simd per Accumulo
+    6 - provare con la branchless
 
 fare le varianze delle varie versioni
 

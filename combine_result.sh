@@ -77,6 +77,39 @@ omp_union() {
     echo -n -e $RAW > $OMP_OUTPUT
 }
 
+cuda_union() {
+    CUDA="${EXPORT_PATH}sph-cuda${1}"
+    CUDA_OUTPUT="${EXPORT_PATH}cuda${1}.csv"
+    MAX_PARTICLES=20000
+    CUR_STEP=100
+
+
+    RAW=""
+    for (( CUR_PAR=1000; $CUR_PAR<=$MAX_PARTICLES; CUR_PAR=$CUR_PAR+1000 )); do
+        CUDA_FILE="${CUDA}/run_p_${CUR_PAR}_s_${CUR_STEP}.csv"
+        if [ -e $CUDA_FILE ]; then
+            RAW="${RAW};${CUR_PAR}"
+        fi
+    done
+    RAW="${RAW:1}\n" # salto il primo ;
+    
+    for (( try=1; $try<=$REPETITIONS; try=$try+1 )); do
+        ROW=""
+        for (( CUR_PAR=1000; $CUR_PAR<=$MAX_PARTICLES; CUR_PAR=$CUR_PAR+1000 )); do
+            CUDA_FILE="${CUDA}/run_p_${CUR_PAR}_s_${CUR_STEP}.csv"
+            if [ -e $CUDA_FILE ]; then
+                timeing=`cut -d";" -f $try $CUDA_FILE`
+                ROW="${ROW};${timeing}"
+            fi
+        done
+        RAW="${RAW}${ROW:1}\n"
+    done
+
+    #echo -n -e $RAW
+
+    echo -n -e $RAW > $CUDA_OUTPUT
+}
+
 EXPORT_PATH=/media/dippi/Volume1/hpc_tests/
 MAX_THREAD=24
 REPETITIONS=8
@@ -92,3 +125,9 @@ MAX_PARTICLES=6000
 
 # unisci i tempi paralleli di omp-simd
 #omp_union "-simd"
+
+cuda_union
+
+cuda_union "-SoA"
+
+cuda_union "-shared"

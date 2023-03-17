@@ -197,8 +197,8 @@ void compute_density_pressure( size_t start, size_t end, size_t step, size_t my_
     }
 }
 
-#pragma GCC push_options
-#pragma GCC optimize ("O0")
+//#pragma GCC push_options
+//#pragma GCC optimize ("O0")
 
 void compute_forces( size_t start, size_t end, size_t step, size_t my_id )
 {
@@ -270,7 +270,7 @@ void compute_forces( size_t start, size_t end, size_t step, size_t my_id )
     }
 }
 
-#pragma GCC pop_options
+//#pragma GCC pop_options
 
 void integrate( size_t start, size_t end, size_t step )
 {

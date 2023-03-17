@@ -184,32 +184,9 @@ void compute_density_pressure( size_t start, size_t end, size_t step, size_t my_
             const float d2 = dx*dx + dy*dy;
 
             if (d2 < HSQ) {
-                near_rho[near + particles_num * my_id] = MASS * POLY6 * pow(HSQ - d2, 3.0);
+                pi->rho += MASS * POLY6 * pow(HSQ - d2, 3.0);
                 near++;
             }
-        }
-
-        /* evaluate rho 
-            pi->rho += MASS * POLY6 * pow(HSQ - d2, 3.0);
-        */
-        int index = 0;
-        
-        if (near > VLEN) {
-            //printf("density near : %d\n", near);
-            v4f acc = {0.0, 0.0, 0.0, 0.0};
-            v4f *vv = (v4f*)near_rho;
-
-            for (; index < near - VLEN + 1; index+= VLEN) {
-                acc += *vv;
-                vv++;
-            }
-            
-            pi->rho = acc[0] + acc[1] + acc[2] + acc[3];
-            
-        }
-        
-        for (; index < near; index++) {
-            pi->rho += near_rho[index + particles_num * my_id];
         }
         
         /* end of simd computation */

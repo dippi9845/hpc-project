@@ -169,7 +169,6 @@ void compute_density_pressure( size_t start, size_t end, size_t step, size_t my_
     for (int i = start; i < end; i += step) {
         particle_t *pi = &particles[i];
         pi->rho = 0.0;
-        int near = 0;
         for (int j=0; j<n_particles; j++) {
             const particle_t *pj = &particles[j];
 

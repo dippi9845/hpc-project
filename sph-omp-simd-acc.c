@@ -197,9 +197,6 @@ void compute_density_pressure( size_t start, size_t end, size_t step, size_t my_
     }
 }
 
-//#pragma GCC push_options
-//#pragma GCC optimize ("O0")
-
 void compute_forces( size_t start, size_t end, size_t step, size_t my_id )
 {
     /* Smoothing kernels defined in Muller and their gradients adapted
@@ -269,8 +266,6 @@ void compute_forces( size_t start, size_t end, size_t step, size_t my_id )
         pi->fy = fpress_y + fvisc_y + fgrav_y;
     }
 }
-
-//#pragma GCC pop_options
 
 void integrate( size_t start, size_t end, size_t step )
 {

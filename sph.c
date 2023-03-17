@@ -428,12 +428,12 @@ int main(int argc, char **argv)
         const float avg = avg_velocities();
         double end = hpc_gettime();
         if (s % 10 == 0) {
-            //printf("step %5d, avgV=%f took: %fs\n", s, avg, end - start);
-            printf("%f;",avg);
+            printf("step %5d, avgV=%f took: %fs\n", s, avg, end - start);
+            //printf("%f;",avg);
         }
     }
     double loop_end = hpc_gettime() - loop_start;
-    //printf("took: %fs\n", loop_end);
+    printf("took: %fs\n", loop_end);
 
 #endif
     free(particles);

@@ -28,6 +28,7 @@
  * SOFTWARE.
  *
  ****************************************************************************/
+#include "hpc.h"
 #ifdef GUI
 #if __APPLE__
 #include <GLUT/glut.h>
@@ -416,6 +417,7 @@ int main(int argc, char **argv)
     }
 
     init_sph(n);
+    double st = hpc_gettime();
     for (int s=0; s<nsteps; s++) {
         update();
         /* the average velocities MUST be computed at each step, even
@@ -425,6 +427,7 @@ int main(int argc, char **argv)
         if (s % 10 == 0)
             printf("step %5d, avgV=%f\n", s, avg);
     }
+    printf("time elapsed: %f\n", hpc_gettime() - st);
 #endif
     free(particles);
     return EXIT_SUCCESS;

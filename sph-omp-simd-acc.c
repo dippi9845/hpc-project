@@ -165,7 +165,8 @@ void compute_density_pressure( size_t start, size_t end, size_t step, size_t my_
        to 2D per "SPH Based Shallow Water Simulation" by Solenthaler
        et al. */
     const float POLY6 = 4.0 / (M_PI * pow(H, 8));
-    
+    v4f acc_rho = {0.f, 0.f, 0.f, 0.f};
+
     for (int i = start; i < end; i += step) {
         particle_t *pi = &particles[i];
         pi->rho = 0.0;
@@ -178,32 +179,20 @@ void compute_density_pressure( size_t start, size_t end, size_t step, size_t my_
             const float d2 = dx*dx + dy*dy;
 
             if (d2 < HSQ) {
-                near_rho[near + particles_num * my_id] = MASS * POLY6 * pow(HSQ - d2, 3.0);
-                near++;
+                if (near < VLEN) {
+                    acc_rho[near] = MASS * POLY6 * pow(HSQ - d2, 3.0);
+                    near++;
+                }
+                else {
+                    pi->rho += acc_rho[0] + acc_rho[1] + acc_rho[2] + acc_rho[3];
+                    near = 0; 
+                }
             }
         }
-
-        /* evaluate rho 
-            pi->rho += MASS * POLY6 * pow(HSQ - d2, 3.0);
-        */
-        int index = 0;
         
-        if (near > VLEN) {
-            //printf("density near : %d\n", near);
-            v4f acc = {0.0, 0.0, 0.0, 0.0};
-            v4f *vv = (v4f*)near_rho;
-
-            for (; index < near - VLEN + 1; index+= VLEN) {
-                acc += *vv;
-                vv++;
-            }
-            
-            pi->rho = acc[0] + acc[1] + acc[2] + acc[3];
-            
-        }
-        
-        for (; index < near; index++) {
-            pi->rho += near_rho[index + particles_num * my_id];
+        /* handle remaining */
+        for (int index = 0; index < near; index++) {
+            pi->rho += acc_rho[index];
         }
         
         /* end of simd computation */
@@ -219,6 +208,11 @@ void compute_forces( size_t start, size_t end, size_t step, size_t my_id )
     const float SPIKY_GRAD = -10.0 / (M_PI * pow(H, 5));
     const float VISC_LAP = 40.0 / (M_PI * pow(H, 5));
     const float EPS = 1e-6;
+
+    v4f acc_press_x = {0.f, 0.f, 0.f, 0.f};
+    v4f acc_press_y = {0.f, 0.f, 0.f, 0.f};
+    v4f acc_visc_x = {0.f, 0.f, 0.f, 0.f};
+    v4f acc_visc_y = {0.f, 0.f, 0.f, 0.f};
 
     for (int i = start; i < end; i += step) {
         particle_t *pi = &particles[i];
@@ -237,71 +231,39 @@ void compute_forces( size_t start, size_t end, size_t step, size_t my_id )
             const float dist = hypotf(dx, dy) + EPS; // avoids division by zero later on
 
             if (dist < H) {
-                const float norm_dx = dx / dist;
-                const float norm_dy = dy / dist;
-                // compute pressure force contribution
-                near_press_x[near + particles_num * my_id] = -norm_dx * MASS * (pi->p + pj->p) / (2 * pj->rho) * SPIKY_GRAD * pow(H - dist, 3);
-                near_press_y[near + particles_num * my_id] = -norm_dy * MASS * (pi->p + pj->p) / (2 * pj->rho) * SPIKY_GRAD * pow(H - dist, 3);
-                // compute viscosity force contribution
-                near_visc_x[near + particles_num * my_id] = VISC * MASS * (pj->vx - pi->vx) / pj->rho * VISC_LAP * (H - dist);
-                near_visc_y[near + particles_num * my_id] = VISC * MASS * (pj->vy - pi->vy) / pj->rho * VISC_LAP * (H - dist);
-                near++;
+                if (near < VLEN) {
+                    const float norm_dx = dx / dist;
+                    const float norm_dy = dy / dist;
+                    
+                    // compute pressure force contribution
+                    acc_press_x[near] = -norm_dx * MASS * (pi->p + pj->p) / (2 * pj->rho) * SPIKY_GRAD * pow(H - dist, 3);
+                    acc_press_y[near] = -norm_dy * MASS * (pi->p + pj->p) / (2 * pj->rho) * SPIKY_GRAD * pow(H - dist, 3);
+                    
+                    // compute viscosity force contribution
+                    acc_visc_x[near] = VISC * MASS * (pj->vx - pi->vx) / pj->rho * VISC_LAP * (H - dist);
+                    acc_visc_y[near] = VISC * MASS * (pj->vy - pi->vy) / pj->rho * VISC_LAP * (H - dist);
+                    
+                    near++;
+                }
+                else {
+                    near = 0;
+                    fpress_x += acc_press_x[0] + acc_press_x[1] + acc_press_x[2] + acc_press_x[3];
+                    fpress_y += acc_press_y[0] + acc_press_y[1] + acc_press_y[2] + acc_press_y[3];
+                    fvisc_x += acc_visc_x[0] + acc_visc_x[1] + acc_visc_x[2] + acc_visc_x[3];
+                    fvisc_y += acc_visc_y[0] + acc_visc_y[1] + acc_visc_y[2] + acc_visc_y[3];
+                }
             }
         }
-        /*
-            fpress_x += -norm_dx * MASS * (pi->p + pj->p) / (2 * pj->rho) * SPIKY_GRAD * pow(H - dist, 3);
-            fpress_y += -norm_dy * MASS * (pi->p + pj->p) / (2 * pj->rho) * SPIKY_GRAD * pow(H - dist, 3);
-            fvisc_x += VISC * MASS * (pj->vx - pi->vx) / pj->rho * VISC_LAP * (H - dist);
-            fvisc_y += VISC * MASS * (pj->vy - pi->vy) / pj->rho * VISC_LAP * (H - dist);
-        */
+
         const float fgrav_x = Gx * MASS / pi->rho;
         const float fgrav_y = Gy * MASS / pi->rho;
 
-        //int index = 0; // index for all simd operations
-        
-        /* if is possible to use simd ops */
-        /*
-        if (near > VLEN) {
-            //printf("press near : %d\n", near);
-            v4f pres_x = {0.0, 0.0, 0.0, 0.0};
-            v4f pres_y = {0.0, 0.0, 0.0, 0.0};
-            v4f visc_x = {0.0, 0.0, 0.0, 0.0};
-            v4f visc_y = {0.0, 0.0, 0.0, 0.0};
 
-            v4f *vv_press_x = (v4f*)near_press_x;
-            v4f *vv_press_y = (v4f*)near_press_y;
-            v4f *vv_visc_x = (v4f*)near_visc_x;
-            v4f *vv_visc_y = (v4f*)near_visc_y;
-
-            // TODO: problemi di cache provare anche 4 loop separati
-            for (; index < near - VLEN + 1; index+= VLEN) {
-                pres_x += *vv_press_x;
-                pres_y += *vv_press_y;
-                visc_x += *vv_visc_x;
-                visc_y += *vv_visc_y;
-
-                vv_press_x++;
-                vv_press_y++;
-                vv_visc_x++;
-                vv_visc_y++;
-
-            }
-            
-            
-            fpress_x = pres_x[0] + pres_x[1] + pres_x[2] + pres_x[3];
-            fpress_y = pres_y[0] + pres_y[1] + pres_y[2] + pres_y[3];
-            fvisc_x = visc_x[0] + visc_x[1] + visc_x[2] + visc_x[3];
-            fvisc_y = visc_y[0] + visc_y[1] + visc_y[2] + visc_y[3];
-
-        }
-        */
-           
-        /* remaining of everything TODO: cache pure qua */
         for (int index = 0; index < near; index++) {
-            fpress_x += near_press_x[index + particles_num * my_id];
-            fpress_y += near_press_y[index + particles_num * my_id];
-            fvisc_x += near_visc_x[index + particles_num * my_id];
-            fvisc_y += near_visc_y[index + particles_num * my_id];
+            fpress_x += acc_press_x[index];
+            fpress_y += acc_press_y[index ];
+            fvisc_x += acc_visc_x[index];
+            fvisc_y += acc_visc_y[index];
         }
         /*-------------------------------------*/
 

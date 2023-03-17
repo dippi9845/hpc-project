@@ -165,10 +165,12 @@ void compute_density_pressure( size_t start, size_t end, size_t step, size_t my_
        to 2D per "SPH Based Shallow Water Simulation" by Solenthaler
        et al. */
     const float POLY6 = 4.0 / (M_PI * pow(H, 8));
+    v4f acc_rho = {0.f, 0.f, 0.f, 0.f};
 
     for (int i = start; i < end; i += step) {
         particle_t *pi = &particles[i];
         pi->rho = 0.0;
+        int near = 0;
         for (int j=0; j<n_particles; j++) {
             const particle_t *pj = &particles[j];
 
@@ -177,10 +179,19 @@ void compute_density_pressure( size_t start, size_t end, size_t step, size_t my_
             const float d2 = dx*dx + dy*dy;
 
             if (d2 < HSQ) {
-                pi->rho += MASS * POLY6 * pow(HSQ - d2, 3.0);
+                acc_rho[near] = MASS * POLY6 * pow(HSQ - d2, 3.0);
+                near++;
+                if (near == VLEN) {
+                    pi->rho += acc_rho[0] + acc_rho[1] + acc_rho[2] + acc_rho[3];
+                    near = 0; 
+                }
             }
         }
         
+        /* handle remaining */
+        for (int index = 0; index < near; index++) {
+            pi->rho += acc_rho[index];
+        }
         /* end of simd computation */
         pi->p = GAS_CONST * (pi->rho - REST_DENS);
     }
@@ -220,21 +231,19 @@ void compute_forces( size_t start, size_t end, size_t step, size_t my_id )
             const float dist = hypotf(dx, dy) + EPS; // avoids division by zero later on
 
             if (dist < H) {
-                if (near < VLEN) {
-                    const float norm_dx = dx / dist;
-                    const float norm_dy = dy / dist;
-                    
-                    // compute pressure force contribution
-                    acc_press_x[near] = -norm_dx * MASS * (pi->p + pj->p) / (2 * pj->rho) * SPIKY_GRAD * pow(H - dist, 3);
-                    acc_press_y[near] = -norm_dy * MASS * (pi->p + pj->p) / (2 * pj->rho) * SPIKY_GRAD * pow(H - dist, 3);
-                    
-                    // compute viscosity force contribution
-                    acc_visc_x[near] = VISC * MASS * (pj->vx - pi->vx) / pj->rho * VISC_LAP * (H - dist);
-                    acc_visc_y[near] = VISC * MASS * (pj->vy - pi->vy) / pj->rho * VISC_LAP * (H - dist);
-                    
-                    near++;
-                }
-                else {
+                const float norm_dx = dx / dist;
+                const float norm_dy = dy / dist;
+                
+                // compute pressure force contribution
+                acc_press_x[near] = -norm_dx * MASS * (pi->p + pj->p) / (2 * pj->rho) * SPIKY_GRAD * pow(H - dist, 3);
+                acc_press_y[near] = -norm_dy * MASS * (pi->p + pj->p) / (2 * pj->rho) * SPIKY_GRAD * pow(H - dist, 3);
+                
+                // compute viscosity force contribution
+                acc_visc_x[near] = VISC * MASS * (pj->vx - pi->vx) / pj->rho * VISC_LAP * (H - dist);
+                acc_visc_y[near] = VISC * MASS * (pj->vy - pi->vy) / pj->rho * VISC_LAP * (H - dist);
+                
+                near++;
+                if (near == VLEN) {
                     near = 0;
                     fpress_x += acc_press_x[0] + acc_press_x[1] + acc_press_x[2] + acc_press_x[3];
                     fpress_y += acc_press_y[0] + acc_press_y[1] + acc_press_y[2] + acc_press_y[3];

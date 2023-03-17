@@ -165,7 +165,6 @@ void compute_density_pressure( size_t start, size_t end, size_t step, size_t my_
        to 2D per "SPH Based Shallow Water Simulation" by Solenthaler
        et al. */
     const float POLY6 = 4.0 / (M_PI * pow(H, 8));
-    v4f acc_rho = {0.f, 0.f, 0.f, 0.f};
 
     for (int i = start; i < end; i += step) {
         particle_t *pi = &particles[i];
@@ -179,20 +178,8 @@ void compute_density_pressure( size_t start, size_t end, size_t step, size_t my_
             const float d2 = dx*dx + dy*dy;
 
             if (d2 < HSQ) {
-                if (near < VLEN) {
-                    acc_rho[near] = MASS * POLY6 * pow(HSQ - d2, 3.0);
-                    near++;
-                }
-                else {
-                    pi->rho += acc_rho[0] + acc_rho[1] + acc_rho[2] + acc_rho[3];
-                    near = 0; 
-                }
+                pi->rho += MASS * POLY6 * pow(HSQ - d2, 3.0);
             }
-        }
-        
-        /* handle remaining */
-        for (int index = 0; index < near; index++) {
-            pi->rho += acc_rho[index];
         }
         
         /* end of simd computation */

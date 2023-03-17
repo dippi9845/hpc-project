@@ -261,7 +261,7 @@ void compute_forces( size_t start, size_t end, size_t step, size_t my_id )
 
         for (int index = 0; index < near; index++) {
             fpress_x += acc_press_x[index];
-            fpress_y += acc_press_y[index ];
+            fpress_y += acc_press_y[index];
             fvisc_x += acc_visc_x[index];
             fvisc_y += acc_visc_y[index];
         }

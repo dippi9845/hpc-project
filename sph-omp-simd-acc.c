@@ -373,8 +373,6 @@ int main(int argc, char **argv)
 
     particles_num = n;
 
-    const int max_th = omp_get_max_threads();
-
     init_sph(n);
     double st = hpc_gettime();
     for (int s=0; s<nsteps; s++) {

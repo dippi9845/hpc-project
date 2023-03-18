@@ -34,9 +34,9 @@ test_loop_parallel() {
     make $MAKE_NAME 1>/dev/null 2>&1 
     mkdir $CURRENT_DIR 2>/dev/null
 
-    for (( CUR_PAR=500; $CUR_PAR<=$MAX_PARTICLES; CUR_PAR=$CUR_PAR+500 )); do # particles [500, 6000] -> 10
+    for (( CUR_PAR=4000; $CUR_PAR<=$MAX_PARTICLES; CUR_PAR=$CUR_PAR+500 )); do # particles [500, 6000] -> 10
         echo "        [P: $CUR_PAR]"
-        for (( CUR_STEP=50; $CUR_STEP<=$MAX_STEPS; CUR_STEP=$CUR_STEP+50 )); do # steps [50, 200] -> 4
+        for (( CUR_STEP=100; $CUR_STEP<=$MAX_STEPS; CUR_STEP=$CUR_STEP+50 )); do # steps [50, 200] -> 4
             TO_PRINT=""
             echo "              [S: $CUR_STEP]"
             for (( try=0; $try<$REPETITIONS; try=$try+1 )); do #  * 8 
@@ -53,8 +53,8 @@ EXPORT_PATH=/media/dippi/Volume1/hpc_tests/
 MAX_THREAD=24
 REPETITIONS=8
 EXE_PATH=bin
-MAX_STEPS=200
-MAX_PARTICLES=500
+MAX_STEPS=100
+MAX_PARTICLES=4000
 
 #echo "Inizio Versione seriale"
 

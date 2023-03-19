@@ -29,12 +29,10 @@
  *
  ****************************************************************************/
 #include "hpc.h"
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
 #include <assert.h>
-#include <omp.h>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -63,22 +61,13 @@ const int MAX_PARTICLES = 20000;
 #define WINDOW_WIDTH 3000
 #define WINDOW_HEIGHT 2000
 
-
 const int DAM_PARTICLES = 500;
 
 const float VIEW_WIDTH = 1.5 * WINDOW_WIDTH;
 const float VIEW_HEIGHT = 1.5 * WINDOW_HEIGHT;
 
-float *near_rho;
-float *near_press_x;
-float *near_press_y;
-float *near_visc_x;
-float *near_visc_y;
-
 typedef float v4f __attribute__ ((vector_size (16)));
 #define VLEN (sizeof(v4f) /sizeof(float))
-
-int particles_num;
 
 /* Particle data structure; stores position, velocity, and force for
    integration stores density (rho) and pressure values for SPH.
@@ -92,7 +81,13 @@ typedef struct {
     float rho, p;       // density, pressure
 } particle_t;
 
-particle_t *particles;
+//particle_t *particles;
+
+float *pos_x, *pos_y;
+float *vx, *vy;
+float *fx, *fy;
+float *rho, *p; 
+
 int n_particles = 0;    // number of currently active particles
 
 /**
@@ -107,14 +102,14 @@ float randab(float a, float b)
  * Set initial position of particle `*p` to (x, y); initialize all
  * other attributes to default values (zeros).
  */
-void init_particle( particle_t *p, float x, float y )
+void init_particle( int index, float x, float y )
 {
-    p->x = x;
-    p->y = y;
-    p->vx = p->vy = 0.0;
-    p->fx = p->fy = 0.0;
-    p->rho = 0.0;
-    p->p = 0.0;
+    pos_x[index] = x;
+    pos_y[index] = y;
+    vx[index] = vy[index] = 0.0;
+    fx[index] = fy[index] = 0.0;
+    rho[index] = 0.0;
+    p[index] = 0.0;
 }
 
 /**
@@ -143,13 +138,13 @@ int is_in_domain( float x, float y )
 void init_sph( int n )
 {
     n_particles = 0;
-    //printf("Initializing with %d particles\n", n);
+    printf("Initializing with %d particles\n", n);
 
     for (float y = EPS; y < VIEW_HEIGHT - EPS; y += H) {
         for (float x = EPS; x <= VIEW_WIDTH * 0.8f; x += H) {
             if (n_particles < n) {
                 float jitter = rand() / (float)RAND_MAX;
-                init_particle(particles + n_particles, x+jitter, y);
+                init_particle(n_particles, x+jitter, y);
                 n_particles++;
             } else {
                 return;
@@ -163,41 +158,45 @@ void init_sph( int n )
  ** You may parallelize the following four functions
  **/
 
-void compute_density_pressure( size_t start, size_t end, size_t step, size_t my_id )
-{
+void compute_density_pressure( void ) {
     const float HSQ = H * H;    // radius^2 for optimization
 
     /* Smoothing kernels defined in Muller and their gradients adapted
        to 2D per "SPH Based Shallow Water Simulation" by Solenthaler
        et al. */
     const float POLY6 = 4.0 / (M_PI * pow(H, 8));
-    const int my_index = particles_num * my_id;
+    v4f acc_rho = {0.f, 0.f, 0.f, 0.f};
 
-    for (int i = start; i < end; i += step) {
-        particle_t *pi = &particles[i];
-        pi->rho = 0.0;
+    for (int i=0; i<n_particles; i++) {
+        rho[i] = 0.0;
         int near = 0;
         for (int j=0; j<n_particles; j++) {
-            const particle_t *pj = &particles[j];
 
-            const float dx = pj->x - pi->x;
-            const float dy = pj->y - pi->y;
+            const float dx = pos_x[j] - pos_x[i];
+            const float dy = pos_y[j] - pos_y[i];
             const float d2 = dx*dx + dy*dy;
-            
-            // versione simd
+
             if (d2 < HSQ) {
-                pi->rho += MASS * POLY6 * pow(HSQ - d2, 3.0);
+                acc_rho[near] = MASS * POLY6 * pow(HSQ - d2, 3.0);
                 near++;
+                if (near == VLEN) {
+                    rho[i] += acc_rho[0] + acc_rho[1] + acc_rho[2] + acc_rho[3];
+                    near = 0; 
+                }
             }
+        }
+
+        /* handle remaining */
+        for (int index = 0; index < near; index++) {
+            rho[i] += acc_rho[index];
         }
         
         /* end of simd computation */
-        pi->p = GAS_CONST * (pi->rho - REST_DENS);
+        p[i] = GAS_CONST * (rho[i] - REST_DENS);
     }
-
 }
 
-void compute_forces( size_t start, size_t end, size_t step, size_t my_id )
+void compute_forces( void )
 {
     /* Smoothing kernels defined in Muller and their gradients adapted
        to 2D per "SPH Based Shallow Water Simulation" by Solenthaler
@@ -205,175 +204,128 @@ void compute_forces( size_t start, size_t end, size_t step, size_t my_id )
     const float SPIKY_GRAD = -10.0 / (M_PI * pow(H, 5));
     const float VISC_LAP = 40.0 / (M_PI * pow(H, 5));
     const float EPS = 1e-6;
-    const int my_index = particles_num * my_id;
 
-    for (int i = start; i < end; i += step) {
-        particle_t *pi = &particles[i];
+    v4f acc_press_x = {0.f, 0.f, 0.f, 0.f};
+    v4f acc_press_y = {0.f, 0.f, 0.f, 0.f};
+    v4f acc_visc_x = {0.f, 0.f, 0.f, 0.f};
+    v4f acc_visc_y = {0.f, 0.f, 0.f, 0.f};
+
+    for (int i=0; i<n_particles; i++) {
         float fpress_x = 0.0, fpress_y = 0.0;
         float fvisc_x = 0.0, fvisc_y = 0.0;
         int near = 0;
 
         for (int j=0; j<n_particles; j++) {
-            const particle_t *pj = &particles[j];
 
-            if (pi == pj)
+            if (i == j)
                 continue;
 
-            const float dx = pj->x - pi->x;
-            const float dy = pj->y - pi->y;
+            const float dx = pos_x[j] - pos_x[i];
+            const float dy = pos_y[j] - pos_y[i];
             const float dist = hypotf(dx, dy) + EPS; // avoids division by zero later on
 
             if (dist < H) {
                 const float norm_dx = dx / dist;
                 const float norm_dy = dy / dist;
                 // compute pressure force contribution
-                near_press_x[near + my_index] = -norm_dx * MASS * (pi->p + pj->p) / (2 * pj->rho) * SPIKY_GRAD * pow(H - dist, 3);
-                near_press_y[near + my_index] = -norm_dy * MASS * (pi->p + pj->p) / (2 * pj->rho) * SPIKY_GRAD * pow(H - dist, 3);
+                acc_press_x[near] = -norm_dx * MASS * (p[i] + p[j]) / (2 * rho[j]) * SPIKY_GRAD * pow(H - dist, 3);
+                acc_press_y[near] = -norm_dy * MASS * (p[i] + p[j]) / (2 * rho[j]) * SPIKY_GRAD * pow(H - dist, 3);
                 // compute viscosity force contribution
-                near_visc_x[near + my_index] = VISC * MASS * (pj->vx - pi->vx) / pj->rho * VISC_LAP * (H - dist);
-                near_visc_y[near + my_index] = VISC * MASS * (pj->vy - pi->vy) / pj->rho * VISC_LAP * (H - dist);
+                acc_visc_x[near] = VISC * MASS * (vx[j] - vx[i]) / rho[j] * VISC_LAP * (H - dist);
+                acc_visc_y[near] = VISC * MASS * (vy[j] - vy[i]) / rho[j] * VISC_LAP * (H - dist);
                 near++;
+                if (near == VLEN) {
+                    near = 0;
+                    fpress_x += acc_press_x[0] + acc_press_x[1] + acc_press_x[2] + acc_press_x[3];
+                    fpress_y += acc_press_y[0] + acc_press_y[1] + acc_press_y[2] + acc_press_y[3];
+                    fvisc_x += acc_visc_x[0] + acc_visc_x[1] + acc_visc_x[2] + acc_visc_x[3];
+                    fvisc_y += acc_visc_y[0] + acc_visc_y[1] + acc_visc_y[2] + acc_visc_y[3];
+                }
             }
         }
-        /*
-            fpress_x += -norm_dx * MASS * (pi->p + pj->p) / (2 * pj->rho) * SPIKY_GRAD * pow(H - dist, 3);
-            fpress_y += -norm_dy * MASS * (pi->p + pj->p) / (2 * pj->rho) * SPIKY_GRAD * pow(H - dist, 3);
-            fvisc_x += VISC * MASS * (pj->vx - pi->vx) / pj->rho * VISC_LAP * (H - dist);
-            fvisc_y += VISC * MASS * (pj->vy - pi->vy) / pj->rho * VISC_LAP * (H - dist);
-        */
-        const float fgrav_x = Gx * MASS / pi->rho;
-        const float fgrav_y = Gy * MASS / pi->rho;
 
-        //int index = 0; // index for all simd operations
-        
-        /* if is possible to use simd ops */
-        /*
-        if (near > VLEN) {
-            //printf("press near : %d\n", near);
-            v4f pres_x = {0.0, 0.0, 0.0, 0.0};
-            v4f pres_y = {0.0, 0.0, 0.0, 0.0};
-            v4f visc_x = {0.0, 0.0, 0.0, 0.0};
-            v4f visc_y = {0.0, 0.0, 0.0, 0.0};
+        const float fgrav_x = Gx * MASS / rho[i];
+        const float fgrav_y = Gy * MASS / rho[i];
 
-            v4f *vv_press_x = (v4f*)near_press_x;
-            v4f *vv_press_y = (v4f*)near_press_y;
-            v4f *vv_visc_x = (v4f*)near_visc_x;
-            v4f *vv_visc_y = (v4f*)near_visc_y;
 
-            for (; index < near - VLEN + 1; index+= VLEN) {
-                pres_x += *vv_press_x;
-                pres_y += *vv_press_y;
-                visc_x += *vv_visc_x;
-                visc_y += *vv_visc_y;
-
-                vv_press_x++;
-                vv_press_y++;
-                vv_visc_x++;
-                vv_visc_y++;
-
-            }
-            
-            
-            fpress_x = pres_x[0] + pres_x[1] + pres_x[2] + pres_x[3];
-            fpress_y = pres_y[0] + pres_y[1] + pres_y[2] + pres_y[3];
-            fvisc_x = visc_x[0] + visc_x[1] + visc_x[2] + visc_x[3];
-            fvisc_y = visc_y[0] + visc_y[1] + visc_y[2] + visc_y[3];
-
-        }
-        */
-           
         for (int index = 0; index < near; index++) {
-            fpress_x += near_press_x[index + my_index];
-            fpress_y += near_press_y[index + my_index];
-            fvisc_x += near_visc_x[index + my_index];
-            fvisc_y += near_visc_y[index + my_index];
+            fpress_x += acc_press_x[index];
+            fpress_y += acc_press_y[index];
+            fvisc_x += acc_visc_x[index];
+            fvisc_y += acc_visc_y[index];
         }
         /*-------------------------------------*/
 
-        pi->fx = fpress_x + fvisc_x + fgrav_x;
-        pi->fy = fpress_y + fvisc_y + fgrav_y;
+        fx[i] = fpress_x + fvisc_x + fgrav_x;
+        fy[i] = fpress_y + fvisc_y + fgrav_y;
     }
 }
 
-void integrate( size_t start, size_t end, size_t step )
+void integrate( void )
 {
-    for (size_t i = start; i < end; i += step) {
-        particle_t *p = &particles[i];
+    for (int i=0; i<n_particles; i++) {
         // forward Euler integration
-        p->vx += DT * p->fx / p->rho;
-        p->vy += DT * p->fy / p->rho;
-        p->x += DT * p->vx;
-        p->y += DT * p->vy;
+        vx[i] += DT * fx[i] / rho[i];
+        vy[i] += DT * fy[i] / rho[i];
+        pos_x[i] += DT * vx[i];
+        pos_y[i] += DT * vy[i];
 
         // enforce boundary conditions
-        if (p->x - EPS < 0.0) {
-            p->vx *= BOUND_DAMPING;
-            p->x = EPS;
+        if (pos_x[i] - EPS < 0.0) {
+            vx[i] *= BOUND_DAMPING;
+            pos_x[i] = EPS;
         }
-        if (p->x + EPS > VIEW_WIDTH) {
-            p->vx *= BOUND_DAMPING;
-            p->x = VIEW_WIDTH - EPS;
+        if (pos_x[i] + EPS > VIEW_WIDTH) {
+            vx[i] *= BOUND_DAMPING;
+            pos_x[i] = VIEW_WIDTH - EPS;
         }
-        if (p->y - EPS < 0.0) {
-            p->vy *= BOUND_DAMPING;
-            p->y = EPS;
+        if (pos_y[i] - EPS < 0.0) {
+            vy[i] *= BOUND_DAMPING;
+            pos_y[i] = EPS;
         }
-        if (p->y + EPS > VIEW_HEIGHT) {
-            p->vy *= BOUND_DAMPING;
-            p->y = VIEW_HEIGHT - EPS;
+        if (pos_y[i] + EPS > VIEW_HEIGHT) {
+            vy[i] *= BOUND_DAMPING;
+            pos_y[i] = VIEW_HEIGHT - EPS;
         }
     }
 }
 
-
-float avg_velocities( size_t start, size_t end, size_t step )
+float avg_velocities( void )
 {
     double result = 0.0;
-    for (size_t i = start; i < end; i += step) {
+    for (int i=0; i<n_particles; i++) {
         /* the hypot(x,y) function is equivalent to sqrt(x*x +
            y*y); */
-        result += hypot(particles[i].vx, particles[i].vy) / n_particles;
+        result += hypot(vx[i], vy[i]) / n_particles;
     }
     return result;
 }
 
-
-float update( void ) {
-    double avg = 0.f;
-
-    #pragma omp parallel default(none) shared(n_particles, particles) reduction(+:avg)
-    {
-        const size_t my_id = omp_get_thread_num();
-        const size_t num_threads = omp_get_num_threads();
-        const size_t my_start = (n_particles*my_id)/num_threads;
-        const size_t my_end = (n_particles*(my_id+1))/num_threads;
-        const size_t my_step = 1;
-
-        //printf("\n[id: %ld] start: %ld, end: %ld, step: %ld", my_id, my_start, my_end, my_step);
-
-        compute_density_pressure(my_start, my_end, my_step, my_id);
-        
-        #pragma omp barrier
-        compute_forces(my_start, my_end, my_step, my_id);
-
-        #pragma omp barrier
-        integrate(my_start, my_end, my_step);
-        /* the average velocities MUST be computed at each step, even
-        if it is not shown (to ensure constant workload per
-        iteration) */
-
-        avg = avg_velocities(my_start, my_end, my_step);
-    }
-
-    return avg;
+void update( void )
+{
+    compute_density_pressure();
+    compute_forces();
+    integrate();
 }
 
 int main(int argc, char **argv)
 {
     srand(1234);
 
-    particles = (particle_t*)malloc(MAX_PARTICLES * sizeof(*particles));
-    assert( particles != NULL );
+    //particles = (particle_t*)malloc(MAX_PARTICLES * sizeof(*particles));
+
+    //assert( particles != NULL );
+
+    pos_x = (float *) malloc(MAX_PARTICLES * sizeof(float)); assert( pos_x != NULL );
+    pos_y = (float *) malloc(MAX_PARTICLES * sizeof(float)); assert( pos_y != NULL );
+    vx = (float *) malloc(MAX_PARTICLES * sizeof(float)); assert( vx != NULL );
+    vy = (float *) malloc(MAX_PARTICLES * sizeof(float)); assert( vy != NULL );
+    fx = (float *) malloc(MAX_PARTICLES * sizeof(float)); assert( fx != NULL );
+    fy = (float *) malloc(MAX_PARTICLES * sizeof(float)); assert( fy != NULL );
+    rho = (float *) malloc(MAX_PARTICLES * sizeof(float)); assert( rho != NULL );
+    p = (float *) malloc(MAX_PARTICLES * sizeof(float)); assert( p != NULL );
+
+    // TODO: alloca la merda
 
     int n = DAM_PARTICLES;
     int nsteps = 50;
@@ -396,34 +348,19 @@ int main(int argc, char **argv)
         return EXIT_FAILURE;
     }
 
-    particles_num = n;
-
-    const int max_th = omp_get_max_threads();
-
-    near_rho = malloc(max_th * n * sizeof(float)); assert(near_rho != NULL);
-    near_press_x = malloc(max_th * n * sizeof(float)); assert(near_press_x != NULL);
-    near_press_y = malloc(max_th * n * sizeof(float)); assert(near_press_y != NULL);
-    near_visc_x = malloc(max_th * n * sizeof(float)); assert(near_visc_x != NULL);
-    near_visc_y = malloc(max_th * n * sizeof(float)); assert(near_visc_y != NULL);
-
     init_sph(n);
-    double loop_start = hpc_gettime();
+    double st = hpc_gettime();
     for (int s=0; s<nsteps; s++) {
-        double start = hpc_gettime();
-        
+        update();
         /* the average velocities MUST be computed at each step, even
            if it is not shown (to ensure constant workload per
            iteration) */
-        const float avg = update();
-        double end = hpc_gettime();
-        if (s % 10 == 0) {
-            printf("step %5d, avgV=%f took: %fs\n", s, avg, end - start);
-            //printf("%f;",avg);
-        }
+        const float avg = avg_velocities();
+        if (s % 10 == 0)
+            printf("step %5d, avgV=%f\n", s, avg);
     }
-    double loop_end = hpc_gettime() - loop_start;
-    printf("took: %fs\n", loop_end);
+    printf("time elapsed: %f\n", hpc_gettime() - st);
 
-    free(particles);
+    //free(particles);
     return EXIT_SUCCESS;
 }

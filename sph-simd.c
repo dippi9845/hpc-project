@@ -325,8 +325,6 @@ int main(int argc, char **argv)
     rho = (float *) malloc(MAX_PARTICLES * sizeof(float)); assert( rho != NULL );
     p = (float *) malloc(MAX_PARTICLES * sizeof(float)); assert( p != NULL );
 
-    // TODO: alloca la merda
-
     int n = DAM_PARTICLES;
     int nsteps = 50;
 

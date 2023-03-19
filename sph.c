@@ -418,15 +418,11 @@ int main(int argc, char **argv)
     
     init_sph(n);
 
-    #ifndef STEP_PERFORMANCE
     double loop_start = hpc_gettime();
-    #endif
     
     for (int s=0; s<nsteps; s++) {
 
-    #ifdef STEP_PERFORMANCE
         double start = hpc_gettime();
-    #endif
 
         update();
         /* the average velocities MUST be computed at each step, even
@@ -439,8 +435,6 @@ int main(int argc, char **argv)
             //printf("%f;",avg);
         }
     }
-
-    #ifndef STEP_PERFORMANCE
     
     double loop_end = hpc_gettime() - loop_start;
     printf("took: %fs\n", loop_end);

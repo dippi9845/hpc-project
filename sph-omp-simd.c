@@ -64,6 +64,8 @@ const int MAX_PARTICLES = 20000;
 #define WINDOW_HEIGHT 2000
 
 
+#define DYNAMIC_SIZE 15
+
 const int DAM_PARTICLES = 500;
 
 const float VIEW_WIDTH = 1.5 * WINDOW_WIDTH;
@@ -157,7 +159,7 @@ void init_sph( int n )
  ** You may parallelize the following four functions
  **/
 
-void compute_density_pressure( size_t start, size_t end, size_t step, size_t my_id )
+void compute_density_pressure( void )
 {
     const float HSQ = H * H;    // radius^2 for optimization
 
@@ -167,7 +169,8 @@ void compute_density_pressure( size_t start, size_t end, size_t step, size_t my_
     const float POLY6 = 4.0 / (M_PI * pow(H, 8));
     v4f acc_rho = {0.f, 0.f, 0.f, 0.f};
 
-    for (int i = start; i < end; i += step) {
+    #pragma omp parallel for schedule(dynamic, DYNAMIC_SIZE) default(none) shared(n_particles, particles) firstprivate(acc_rho)
+    for (int i=0; i<n_particles; i++) {
         particle_t *pi = &particles[i];
         pi->rho = 0.0;
         int near = 0;
@@ -197,7 +200,7 @@ void compute_density_pressure( size_t start, size_t end, size_t step, size_t my_
     }
 }
 
-void compute_forces( size_t start, size_t end, size_t step, size_t my_id )
+void compute_forces( void )
 {
     /* Smoothing kernels defined in Muller and their gradients adapted
        to 2D per "SPH Based Shallow Water Simulation" by Solenthaler
@@ -211,7 +214,8 @@ void compute_forces( size_t start, size_t end, size_t step, size_t my_id )
     v4f acc_visc_x = {0.f, 0.f, 0.f, 0.f};
     v4f acc_visc_y = {0.f, 0.f, 0.f, 0.f};
 
-    for (int i = start; i < end; i += step) {
+    #pragma omp parallel for schedule(dynamic, DYNAMIC_SIZE) default(none) shared(n_particles, particles) firstprivate(acc_press_x, acc_press_y, acc_visc_x, acc_visc_y)
+    for (int i=0; i<n_particles; i++) {
         particle_t *pi = &particles[i];
         float fpress_x = 0.0, fpress_y = 0.0;
         float fvisc_x = 0.0, fvisc_y = 0.0;
@@ -267,9 +271,10 @@ void compute_forces( size_t start, size_t end, size_t step, size_t my_id )
     }
 }
 
-void integrate( size_t start, size_t end, size_t step )
+void integrate( void )
 {
-    for (size_t i = start; i < end; i += step) {
+    #pragma omp parallel for schedule(dynamic, DYNAMIC_SIZE) default(none) shared(n_particles, particles)
+    for (int i=0; i<n_particles; i++) {
         particle_t *p = &particles[i];
         // forward Euler integration
         p->vx += DT * p->fx / p->rho;
@@ -298,10 +303,11 @@ void integrate( size_t start, size_t end, size_t step )
 }
 
 
-float avg_velocities( size_t start, size_t end, size_t step )
+float avg_velocities( void )
 {
     double result = 0.0;
-    for (size_t i = start; i < end; i += step) {
+    #pragma omp parallel for reduction(+:result)
+    for (int i=0; i<n_particles; i++) {
         /* the hypot(x,y) function is equivalent to sqrt(x*x +
            y*y); */
         result += hypot(particles[i].vx, particles[i].vy) / n_particles;
@@ -310,32 +316,11 @@ float avg_velocities( size_t start, size_t end, size_t step )
 }
 
 
-float update( void ) {
-    double avg = 0.f;
+void update( void ) {
 
-    #pragma omp parallel default(none) shared(n_particles, particles) reduction(+:avg)
-    {
-        const size_t my_id = omp_get_thread_num();
-        const size_t num_threads = omp_get_num_threads();
-        const size_t my_start = (n_particles*my_id)/num_threads;
-        const size_t my_end = (n_particles*(my_id+1))/num_threads;
-        const size_t my_step = 1;
-
-        compute_density_pressure(my_start, my_end, my_step, my_id);
-        
-        #pragma omp barrier
-        compute_forces(my_start, my_end, my_step, my_id);
-
-        #pragma omp barrier
-        integrate(my_start, my_end, my_step);
-        /* the average velocities MUST be computed at each step, even
-        if it is not shown (to ensure constant workload per
-        iteration) */
-
-        avg = avg_velocities(my_start, my_end, my_step);
-    }
-
-    return avg;
+    compute_density_pressure();
+    compute_forces();
+    integrate();
 }
 
 int main(int argc, char **argv)
@@ -371,8 +356,12 @@ int main(int argc, char **argv)
     init_sph(n);
     double st = hpc_gettime();
     for (int s=0; s<nsteps; s++) {
+        update();
         
-        const float avg = update();
+        /* the average velocities MUST be computed at each step, even
+    if it is not shown (to ensure constant workload per
+    iteration) */
+        const float avg = avg_velocities();
 
         if (s % 10 == 0)
             printf("step %5d, avgV=%f\n", s, avg);

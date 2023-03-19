@@ -10,9 +10,9 @@ test_loop() {
     make $MAKE_NAME
     mkdir $CURRENT_DIR
 
-    for (( CUR_PAR=1000; $CUR_PAR<=$MAX_PARTICLES; CUR_PAR=$CUR_PAR+1000 )); do # particles [1000, 20000] -> 20
+    for (( CUR_PAR=500; $CUR_PAR<=$MAX_PARTICLES; CUR_PAR=$CUR_PAR+2000 )); do # particles [1000, 20000] -> 20
         echo "[P: $CUR_PAR]"
-        for (( CUR_STEP=100; $CUR_STEP<=100; CUR_STEP=$CUR_STEP+50 )); do # steps [100, 100] -> 1
+        for (( CUR_STEP=200; $CUR_STEP<=200; CUR_STEP=$CUR_STEP+50 )); do # steps [100, 100] -> 1
             TO_PRINT=""
             for (( try=0; $try<$REPETITIONS; try=$try+1 )); do #  * 8 
                 OUT=`$CURRENT_EXE $CUR_PAR $CUR_STEP`
@@ -34,10 +34,11 @@ test_loop_parallel() {
     make $MAKE_NAME 1>/dev/null 2>&1 
     mkdir $CURRENT_DIR 2>/dev/null
 
-    for (( CUR_PAR=500; $CUR_PAR<=$MAX_PARTICLES; CUR_PAR=$CUR_PAR+500 )); do # particles [500, 6000] -> 10
+    for (( CUR_PAR=4000; $CUR_PAR<=$MAX_PARTICLES; CUR_PAR=$CUR_PAR+500 )); do # particles [500, 6000] -> 10
         echo "        [P: $CUR_PAR]"
-        for (( CUR_STEP=50; $CUR_STEP<=$MAX_STEPS; CUR_STEP=$CUR_STEP+50 )); do # steps [50, 200] -> 4
+        for (( CUR_STEP=100; $CUR_STEP<=$MAX_STEPS; CUR_STEP=$CUR_STEP+50 )); do # steps [50, 200] -> 4
             TO_PRINT=""
+            echo "              [S: $CUR_STEP]"
             for (( try=0; $try<$REPETITIONS; try=$try+1 )); do #  * 8 
                 OUT=`OMP_NUM_THREADS=${3} $CURRENT_EXE $CUR_PAR $CUR_STEP`
                 #echo "$CURRENT_EXE $CUR_PAR $CUR_STEP"
@@ -52,20 +53,22 @@ EXPORT_PATH=/media/dippi/Volume1/hpc_tests/
 MAX_THREAD=24
 REPETITIONS=8
 EXE_PATH=bin
-MAX_STEPS=200
-MAX_PARTICLES=20000
+MAX_STEPS=100
+MAX_PARTICLES=4000
 
-echo "Inizio Versione seriale"
+#echo "Inizio Versione seriale"
 
 #test_loop "sph" "sph"
 
-echo "Finito la versione seriale"
+#echo "Finito la versione seriale"
 
 #test_loop "sph-simd" "simd"
 
-echo "Finito la versione simd"
+#test_loop "sph-simd-acc" "simd-acc"
 
-echo "inizio omp"
+#echo "Finito la versione simd"
+
+#echo "inizio omp"
 
 #for (( i=1; $i<=$MAX_THREAD; i=$i+1 )); do
 #    echo "    [th: $i]" 
@@ -80,22 +83,41 @@ echo "inizio omp"
 #    test_loop_parallel "sph-omp-simd" "omp-simd" $i
 #done
 
-echo "fine omp simd"
+echo "Dimanica"
 
-echo "Inizio cuda"
+#for (( i=1; $i<=$MAX_THREAD; i=$i+1 )); do
+#    echo "    [th: $i]" 
+#    test_loop_parallel "sph-omp-dynamic" "omp-dynamic" $i
+#done
+
+for (( i=1; $i<=$MAX_THREAD; i=$i+1 )); do
+    echo "    [th: $i]" 
+    test_loop_parallel "sph-omp-simd" "omp-simd" $i
+done
+
+#echo "Dimanica simd"
+
+#for (( i=1; $i<=$MAX_THREAD; i=$i+1 )); do
+#    echo "    [th: $i]" 
+#    test_loop_parallel "sph-omp-simd" "omp-simd" $i
+#done
+
+#echo "fine omp simd"
+
+#echo "Inizio cuda"
 
 #test_loop "sph-cuda" "cuda"
 
-echo "Fine cuda"
+#echo "Fine cuda"
 
-echo "Inizio cuda"
+#echo "Inizio cuda"
 
 #test_loop "sph-cuda-SoA" "cuda-SoA"
 
-echo "Fine cuda"
+#echo "Fine cuda"
 
-echo "Inizio cuda"
+#echo "Inizio cuda"
 
 #test_loop "sph-cuda-shared" "cuda-shared"
 
-echo "Fine cuda"
+#echo "Fine cuda"

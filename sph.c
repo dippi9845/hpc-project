@@ -433,19 +433,17 @@ int main(int argc, char **argv)
            if it is not shown (to ensure constant workload per
            iteration) */
         const float avg = avg_velocities();
-
-    #ifdef STEP_PERFORMANCE
-        double end = hpc_gettime() - start;
-        printf("%f;", end);
-    #endif
+        double end = hpc_gettime();
+        if (s % 10 == 0) {
+            printf("step %5d, avgV=%f took: %fs\n", s, avg, end - start);
+            //printf("%f;",avg);
+        }
     }
 
     #ifndef STEP_PERFORMANCE
     
     double loop_end = hpc_gettime() - loop_start;
-    printf("%f\n", loop_end);
-    
-    #endif
+    printf("took: %fs\n", loop_end);
 
 #endif
     free(particles);

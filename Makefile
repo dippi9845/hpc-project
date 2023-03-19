@@ -29,9 +29,6 @@ sph: sph.c
 omp: sph-omp.c
 	gcc sph-omp.c $(CFLAGS) $(LDLIBS) $(OPM_FLAG) -o bin/sph-omp
 
-omp-dynamic: sph-omp-dynamic.c
-	gcc sph-omp-dynamic.c $(CFLAGS) $(LDLIBS) $(OPM_FLAG) -o bin/sph-omp-dynamic
-
 simd: sph-simd.c
 	gcc sph-simd.c $(CFLAGS) $(LDLIBS) $(SIMD_FLAG) -o bin/sph-simd
 

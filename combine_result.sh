@@ -3,9 +3,9 @@
 
 serial_union() {
 
-    SERIAL="${EXPORT_PATH}sph"
-    SERIAL_SIMD="${EXPORT_PATH}sph-simd"
-    SERIAL_OUTPUT="${EXPORT_PATH}serial-simd.csv"
+    SERIAL="${EXPORT_PATH}sph-simd-near"
+    SERIAL_SIMD="${EXPORT_PATH}sph-simd-acc"
+    SERIAL_OUTPUT="${EXPORT_PATH}simd-near-simd-acc.csv"
 
     RAW=""
     for (( CUR_PAR=500; $CUR_PAR<=$MAX_PARTICLES; CUR_PAR=$CUR_PAR+500 )); do # particles [2000, 20000] -> 10
@@ -118,7 +118,7 @@ MAX_STEPS=200
 MAX_PARTICLES=6000
 
 # unisci i tempi simd e seriali
-#serial_union
+serial_union
 
 # unisci i tempi paralleli di omp
 #omp_union
@@ -126,7 +126,7 @@ MAX_PARTICLES=6000
 # unisci i tempi paralleli di omp-simd
 #omp_union "-simd"
 
-omp_union "-dynamic-simd-acc"
+#omp_union "-dynamic-simd-acc"
 
 #cuda_union
 

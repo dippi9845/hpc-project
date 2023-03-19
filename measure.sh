@@ -85,9 +85,14 @@ MAX_PARTICLES=4000
 
 echo "Dimanica"
 
+#for (( i=1; $i<=$MAX_THREAD; i=$i+1 )); do
+#    echo "    [th: $i]" 
+#    test_loop_parallel "sph-omp-dynamic" "omp-dynamic" $i
+#done
+
 for (( i=1; $i<=$MAX_THREAD; i=$i+1 )); do
     echo "    [th: $i]" 
-    test_loop_parallel "sph-omp-dynamic" "omp-dynamic" $i
+    test_loop_parallel "sph-omp-simd" "omp-simd" $i
 done
 
 #echo "Dimanica simd"

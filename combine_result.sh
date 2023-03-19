@@ -124,10 +124,10 @@ MAX_PARTICLES=6000
 #omp_union
 
 # unisci i tempi paralleli di omp-simd
-#omp_union "-simd"
+omp_union "-dynamic"
 
-cuda_union
+#cuda_union
 
-cuda_union "-SoA"
+#cuda_union "-SoA"
 
-cuda_union "-shared"
+#cuda_union "-shared"

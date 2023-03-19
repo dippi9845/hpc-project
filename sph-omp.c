@@ -53,16 +53,12 @@ const float VISC = 200;         // viscosity constant
 const float DT = 0.0007;        // integration timestep
 const float BOUND_DAMPING = -0.5;
 
-// rendering projection parameters
-// (the following ought to be "const float", but then the compiler
-// would give an error because VIEW_WIDTH and VIEW_HEIGHT are
-// initialized with non-literal expressions)
+#define DYNAMIC_SIZE 15
 
 const int MAX_PARTICLES = 20000;
 // Larger window size to accommodate more particles
 #define WINDOW_WIDTH 3000
 #define WINDOW_HEIGHT 2000
-
 
 const int DAM_PARTICLES = 500;
 
@@ -132,7 +128,7 @@ int is_in_domain( float x, float y )
 void init_sph( int n )
 {
     n_particles = 0;
-    //printf("Initializing with %d particles\n", n);
+    printf("Initializing with %d particles\n", n);
 
     for (float y = EPS; y < VIEW_HEIGHT - EPS; y += H) {
         for (float x = EPS; x <= VIEW_WIDTH * 0.8f; x += H) {
@@ -152,7 +148,7 @@ void init_sph( int n )
  ** You may parallelize the following four functions
  **/
 
-void compute_density_pressure( size_t start, size_t end, size_t step )
+void compute_density_pressure( void )
 {
     const float HSQ = H * H;    // radius^2 for optimization
 
@@ -161,7 +157,8 @@ void compute_density_pressure( size_t start, size_t end, size_t step )
        et al. */
     const float POLY6 = 4.0 / (M_PI * pow(H, 8));
     
-    for (int i = start; i < end; i += step) {
+    #pragma omp parallel for schedule(dynamic, DYNAMIC_SIZE)
+    for (int i=0; i<n_particles; i++) {
         particle_t *pi = &particles[i];
         pi->rho = 0.0;
         for (int j=0; j<n_particles; j++) {
@@ -179,7 +176,7 @@ void compute_density_pressure( size_t start, size_t end, size_t step )
     }
 }
 
-void compute_forces( size_t start, size_t end, size_t step )
+void compute_forces( void )
 {
     /* Smoothing kernels defined in Muller and their gradients adapted
        to 2D per "SPH Based Shallow Water Simulation" by Solenthaler
@@ -188,7 +185,8 @@ void compute_forces( size_t start, size_t end, size_t step )
     const float VISC_LAP = 40.0 / (M_PI * pow(H, 5));
     const float EPS = 1e-6;
 
-    for (int i = start; i < end; i += step) {
+    #pragma omp parallel for schedule(dynamic, DYNAMIC_SIZE)
+    for (int i=0; i<n_particles; i++) {
         particle_t *pi = &particles[i];
         float fpress_x = 0.0, fpress_y = 0.0;
         float fvisc_x = 0.0, fvisc_y = 0.0;
@@ -221,9 +219,10 @@ void compute_forces( size_t start, size_t end, size_t step )
     }
 }
 
-void integrate( size_t start, size_t end, size_t step )
+void integrate( void )
 {
-    for (size_t i = start; i < end; i += step) {
+    #pragma omp parallel for schedule(dynamic, DYNAMIC_SIZE)
+    for (int i=0; i<n_particles; i++) {
         particle_t *p = &particles[i];
         // forward Euler integration
         p->vx += DT * p->fx / p->rho;
@@ -251,11 +250,11 @@ void integrate( size_t start, size_t end, size_t step )
     }
 }
 
-
-float avg_velocities( size_t start, size_t end, size_t step )
+float avg_velocities( void )
 {
     double result = 0.0;
-    for (size_t i = start; i < end; i += step) {
+    #pragma omp parallel for reduction(+:result)
+    for (int i=0; i<n_particles; i++) {
         /* the hypot(x,y) function is equivalent to sqrt(x*x +
            y*y); */
         result += hypot(particles[i].vx, particles[i].vy) / n_particles;
@@ -263,33 +262,11 @@ float avg_velocities( size_t start, size_t end, size_t step )
     return result;
 }
 
-
-float update( void ) {
-    double avg = 0.f;
-
-    #pragma omp parallel default(none) shared(n_particles, particles) reduction(+:avg)
-    {
-        const size_t my_id = omp_get_thread_num();
-        const size_t num_threads = omp_get_num_threads();
-        const size_t my_start = (n_particles*my_id)/num_threads;
-        const size_t my_end = (n_particles*(my_id+1))/num_threads;
-        const size_t my_step = 1;
-
-        compute_density_pressure(my_start, my_end, my_step);
-        
-        #pragma omp barrier
-        compute_forces(my_start, my_end, my_step);
-
-        #pragma omp barrier
-        integrate(my_start, my_end, my_step);
-        /* the average velocities MUST be computed at each step, even
-        if it is not shown (to ensure constant workload per
-        iteration) */
-
-        avg = avg_velocities(my_start, my_end, my_step);
-    }
-
-    return avg;
+void update( void )
+{
+    compute_density_pressure();
+    compute_forces();
+    integrate();
 }
 
 int main(int argc, char **argv)
@@ -298,7 +275,6 @@ int main(int argc, char **argv)
 
     particles = (particle_t*)malloc(MAX_PARTICLES * sizeof(*particles));
     assert( particles != NULL );
-
     int n = DAM_PARTICLES;
     int nsteps = 50;
 
@@ -321,22 +297,18 @@ int main(int argc, char **argv)
     }
 
     init_sph(n);
-
-    double loop_start = hpc_gettime();
+    double st = hpc_gettime();
     for (int s=0; s<nsteps; s++) {
-        double start = hpc_gettime();
+        update();
         /* the average velocities MUST be computed at each step, even
            if it is not shown (to ensure constant workload per
            iteration) */
-        const float avg = update();
-        double end = hpc_gettime();
-        if (s % 10 == 0) {
-            printf("step %5d, avgV=%f took: %fs\n", s, avg, end - start);
-            //printf("%f;", avg);
-        }
+        const float avg = avg_velocities();
+        //if (s % 10 == 0)
+        //    printf("step %5d, avgV=%f\n", s, avg);
     }
-    double loop_end = hpc_gettime() - loop_start;
-    printf("took: %fs\n", loop_end);
+    //printf("time elapsed: %f\n", hpc_gettime() - st);
+    printf("%f\n", hpc_gettime() - st);
 
     free(particles);
     return EXIT_SUCCESS;

@@ -139,7 +139,7 @@ int is_in_domain( float x, float y )
 void init_sph( int n )
 {
     n_particles = 0;
-    printf("Initializing with %d particles\n", n);
+    //printf("Initializing with %d particles\n", n);
 
     for (float y = EPS; y < VIEW_HEIGHT - EPS; y += H) {
         for (float x = EPS; x <= VIEW_WIDTH * 0.8f; x += H) {
@@ -363,10 +363,10 @@ int main(int argc, char **argv)
     iteration) */
         const float avg = avg_velocities();
 
-        if (s % 10 == 0)
-            printf("step %5d, avgV=%f\n", s, avg);
+        //if (s % 10 == 0)
+            //printf("step %5d, avgV=%f\n", s, avg);
     }
-    printf("time elapsed: %f\n", hpc_gettime() - st);
+    printf("%f\n", hpc_gettime() - st);
 
     free(particles);
     return EXIT_SUCCESS;

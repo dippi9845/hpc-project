@@ -66,8 +66,5 @@ cuda-dbg: sph-cuda.cu
 simd-acc: sph-simd-acc.c
 	gcc sph-simd-acc.c $(CFLAGS) $(LDLIBS) $(SIMD_FLAG) $(OPM_FLAG) -o bin/sph-simd-acc
 
-omp-simd-acc: sph-omp-simd-acc.c
-	gcc sph-omp-simd-acc.c $(CFLAGS) $(LDLIBS) $(SIMD_FLAG) $(OPM_FLAG) -o bin/sph-omp-simd-acc
-
 clean:
 	\rm -f bin/sph*

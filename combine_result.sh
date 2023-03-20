@@ -118,15 +118,17 @@ MAX_STEPS=200
 MAX_PARTICLES=6000
 
 # unisci i tempi simd e seriali
-serial_union
+#serial_union
 
 # unisci i tempi paralleli di omp
 #omp_union
 
+#omp_union "-dynamic"
+
 # unisci i tempi paralleli di omp-simd
 #omp_union "-simd"
 
-#omp_union "-dynamic-simd-acc"
+omp_union "-dynamic-simd-acc"
 
 #cuda_union
 

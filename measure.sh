@@ -34,7 +34,7 @@ test_loop_parallel() {
     make $MAKE_NAME 1>/dev/null 2>&1 
     mkdir $CURRENT_DIR 2>/dev/null
 
-    for (( CUR_PAR=4000; $CUR_PAR<=$MAX_PARTICLES; CUR_PAR=$CUR_PAR+500 )); do # particles [500, 6000] -> 10
+    for (( CUR_PAR=6000; $CUR_PAR<=$MAX_PARTICLES; CUR_PAR=$CUR_PAR+500 )); do # particles [500, 6000] -> 10
         echo "        [P: $CUR_PAR]"
         for (( CUR_STEP=100; $CUR_STEP<=$MAX_STEPS; CUR_STEP=$CUR_STEP+50 )); do # steps [50, 200] -> 4
             TO_PRINT=""
@@ -54,7 +54,7 @@ MAX_THREAD=24
 REPETITIONS=8
 EXE_PATH=bin
 MAX_STEPS=100
-MAX_PARTICLES=4000
+MAX_PARTICLES=6000
 
 #echo "Inizio Versione seriale"
 
@@ -68,15 +68,15 @@ MAX_PARTICLES=4000
 
 #echo "Finito la versione simd"
 
-#echo "inizio omp"
+echo "inizio omp"
 
-#for (( i=1; $i<=$MAX_THREAD; i=$i+1 )); do
-#    echo "    [th: $i]" 
-#    test_loop_parallel "sph-omp" "omp" $i
-#done
+for (( i=1; $i<=$MAX_THREAD; i=$i+1 )); do
+    echo "    [th: $i]" 
+    test_loop_parallel "sph-omp" "omp" $i
+done
 
-#echo "fine omp"
-#echo "inizio omp simd"
+echo "fine omp"
+echo "inizio omp simd"
 
 #for (( i=1; $i<=$MAX_THREAD; i=$i+1 )); do
 #    echo "    [th: $i]" 

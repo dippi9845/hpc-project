@@ -360,5 +360,15 @@ int main(int argc, char **argv)
     printf("%f\n", hpc_gettime() - st);
 
     //free(particles);
+    free(pos_x);
+    free(pos_y);
+    free(vx);
+    free(vy);
+    free(fx);
+    free(fy);
+    free(rho);
+    free(p);
+
+
     return EXIT_SUCCESS;
 }

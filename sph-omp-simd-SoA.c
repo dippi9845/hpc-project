@@ -88,7 +88,13 @@ typedef struct {
     float rho, p;       // density, pressure
 } particle_t;
 
-particle_t *particles;
+//particle_t *particles;
+
+float *pos_x, *pos_y;
+float *vx, *vy;
+float *fx, *fy;
+float *rho, *p; 
+
 int n_particles = 0;    // number of currently active particles
 
 /**
@@ -103,14 +109,14 @@ float randab(float a, float b)
  * Set initial position of particle `*p` to (x, y); initialize all
  * other attributes to default values (zeros).
  */
-void init_particle( particle_t *p, float x, float y )
+void init_particle( int index, float x, float y )
 {
-    p->x = x;
-    p->y = y;
-    p->vx = p->vy = 0.0;
-    p->fx = p->fy = 0.0;
-    p->rho = 0.0;
-    p->p = 0.0;
+    pos_x[index] = x;
+    pos_y[index] = y;
+    vx[index] = vy[index] = 0.0;
+    fx[index] = fy[index] = 0.0;
+    rho[index] = 0.0;
+    p[index] = 0.0;
 }
 
 /**
@@ -145,7 +151,7 @@ void init_sph( int n )
         for (float x = EPS; x <= VIEW_WIDTH * 0.8f; x += H) {
             if (n_particles < n) {
                 float jitter = rand() / (float)RAND_MAX;
-                init_particle(particles + n_particles, x+jitter, y);
+                init_particle(n_particles, x+jitter, y);
                 n_particles++;
             } else {
                 return;
@@ -171,21 +177,21 @@ void compute_density_pressure( void )
 
     #pragma omp parallel for schedule(dynamic, DYNAMIC_SIZE) default(none) shared(n_particles, particles) firstprivate(acc_rho)
     for (int i=0; i<n_particles; i++) {
-        particle_t *pi = &particles[i];
-        pi->rho = 0.0;
+        //particle_t *pi = &particles[i];
+        rho[i] = 0.0;
         int near = 0;
         for (int j=0; j<n_particles; j++) {
-            const particle_t *pj = &particles[j];
+            //const particle_t *pj = &particles[j];
 
-            const float dx = pj->x - pi->x;
-            const float dy = pj->y - pi->y;
+            const float dx = pos_x[j] - pos_x[i];
+            const float dy = pos_y[j] - pos_y[i];
             const float d2 = dx*dx + dy*dy;
 
             if (d2 < HSQ) {
                 acc_rho[near] = MASS * POLY6 * pow(HSQ - d2, 3.0);
                 near++;
                 if (near == VLEN) {
-                    pi->rho += acc_rho[0] + acc_rho[1] + acc_rho[2] + acc_rho[3];
+                    rho[i] += acc_rho[0] + acc_rho[1] + acc_rho[2] + acc_rho[3];
                     near = 0; 
                 }
             }
@@ -193,10 +199,10 @@ void compute_density_pressure( void )
         
         /* handle remaining */
         for (int index = 0; index < near; index++) {
-            pi->rho += acc_rho[index];
+            rho[i] += acc_rho[index];
         }
         /* end of simd computation */
-        pi->p = GAS_CONST * (pi->rho - REST_DENS);
+        p[i] = GAS_CONST * (rho[i] - REST_DENS);
     }
 }
 
@@ -216,19 +222,19 @@ void compute_forces( void )
 
     #pragma omp parallel for schedule(dynamic, DYNAMIC_SIZE) default(none) shared(n_particles, particles) firstprivate(acc_press_x, acc_press_y, acc_visc_x, acc_visc_y)
     for (int i=0; i<n_particles; i++) {
-        particle_t *pi = &particles[i];
+        //particle_t *pi = &particles[i];
         float fpress_x = 0.0, fpress_y = 0.0;
         float fvisc_x = 0.0, fvisc_y = 0.0;
         int near = 0;
 
         for (int j=0; j<n_particles; j++) {
-            const particle_t *pj = &particles[j];
+            //const particle_t *pj = &particles[j];
 
-            if (pi == pj)
+            if (i == j)
                 continue;
 
-            const float dx = pj->x - pi->x;
-            const float dy = pj->y - pi->y;
+            const float dx = pos_x[j] - pos_x[i];
+            const float dy = pos_y[j] - pos_y[i];
             const float dist = hypotf(dx, dy) + EPS; // avoids division by zero later on
 
             if (dist < H) {
@@ -236,12 +242,11 @@ void compute_forces( void )
                 const float norm_dy = dy / dist;
                 
                 // compute pressure force contribution
-                acc_press_x[near] = -norm_dx * MASS * (pi->p + pj->p) / (2 * pj->rho) * SPIKY_GRAD * pow(H - dist, 3);
-                acc_press_y[near] = -norm_dy * MASS * (pi->p + pj->p) / (2 * pj->rho) * SPIKY_GRAD * pow(H - dist, 3);
-                
+                acc_press_x[near] = -norm_dx * MASS * (p[i] + p[j]) / (2 * rho[j]) * SPIKY_GRAD * pow(H - dist, 3);
+                acc_press_y[near] = -norm_dy * MASS * (p[i] + p[j]) / (2 * rho[j]) * SPIKY_GRAD * pow(H - dist, 3);
                 // compute viscosity force contribution
-                acc_visc_x[near] = VISC * MASS * (pj->vx - pi->vx) / pj->rho * VISC_LAP * (H - dist);
-                acc_visc_y[near] = VISC * MASS * (pj->vy - pi->vy) / pj->rho * VISC_LAP * (H - dist);
+                acc_visc_x[near] = VISC * MASS * (vx[j] - vx[i]) / rho[j] * VISC_LAP * (H - dist);
+                acc_visc_y[near] = VISC * MASS * (vy[j] - vy[i]) / rho[j] * VISC_LAP * (H - dist);
                 
                 near++;
                 if (near == VLEN) {
@@ -254,8 +259,8 @@ void compute_forces( void )
             }
         }
 
-        const float fgrav_x = Gx * MASS / pi->rho;
-        const float fgrav_y = Gy * MASS / pi->rho;
+        const float fgrav_x = Gx * MASS / rho[i];
+        const float fgrav_y = Gy * MASS / rho[i];
 
 
         for (int index = 0; index < near; index++) {
@@ -266,8 +271,8 @@ void compute_forces( void )
         }
         /*-------------------------------------*/
 
-        pi->fx = fpress_x + fvisc_x + fgrav_x;
-        pi->fy = fpress_y + fvisc_y + fgrav_y;
+        fx[i] = fpress_x + fvisc_x + fgrav_x;
+        fy[i] = fpress_y + fvisc_y + fgrav_y;
     }
 }
 
@@ -275,29 +280,28 @@ void integrate( void )
 {
     #pragma omp parallel for schedule(dynamic, DYNAMIC_SIZE) default(none) shared(n_particles, particles)
     for (int i=0; i<n_particles; i++) {
-        particle_t *p = &particles[i];
         // forward Euler integration
-        p->vx += DT * p->fx / p->rho;
-        p->vy += DT * p->fy / p->rho;
-        p->x += DT * p->vx;
-        p->y += DT * p->vy;
+        vx[i] += DT * fx[i] / rho[i];
+        vy[i] += DT * fy[i] / rho[i];
+        pos_x[i] += DT * vx[i];
+        pos_y[i] += DT * vy[i];
 
         // enforce boundary conditions
-        if (p->x - EPS < 0.0) {
-            p->vx *= BOUND_DAMPING;
-            p->x = EPS;
+        if (pos_x[i] - EPS < 0.0) {
+            vx[i] *= BOUND_DAMPING;
+            pos_x[i] = EPS;
         }
-        if (p->x + EPS > VIEW_WIDTH) {
-            p->vx *= BOUND_DAMPING;
-            p->x = VIEW_WIDTH - EPS;
+        if (pos_x[i] + EPS > VIEW_WIDTH) {
+            vx[i] *= BOUND_DAMPING;
+            pos_x[i] = VIEW_WIDTH - EPS;
         }
-        if (p->y - EPS < 0.0) {
-            p->vy *= BOUND_DAMPING;
-            p->y = EPS;
+        if (pos_y[i] - EPS < 0.0) {
+            vy[i] *= BOUND_DAMPING;
+            pos_y[i] = EPS;
         }
-        if (p->y + EPS > VIEW_HEIGHT) {
-            p->vy *= BOUND_DAMPING;
-            p->y = VIEW_HEIGHT - EPS;
+        if (pos_y[i] + EPS > VIEW_HEIGHT) {
+            vy[i] *= BOUND_DAMPING;
+            pos_y[i] = VIEW_HEIGHT - EPS;
         }
     }
 }
@@ -310,7 +314,7 @@ float avg_velocities( void )
     for (int i=0; i<n_particles; i++) {
         /* the hypot(x,y) function is equivalent to sqrt(x*x +
            y*y); */
-        result += hypot(particles[i].vx, particles[i].vy) / n_particles;
+        result += hypot(vx[i], vy[i]) / n_particles;
     }
     return result;
 }
@@ -327,8 +331,18 @@ int main(int argc, char **argv)
 {
     srand(1234);
 
-    particles = (particle_t*)malloc(MAX_PARTICLES * sizeof(*particles));
-    assert( particles != NULL );
+    //particles = (particle_t*)malloc(MAX_PARTICLES * sizeof(*particles));
+    
+    pos_x = (float *) malloc(MAX_PARTICLES * sizeof(float)); assert( pos_x != NULL );
+    pos_y = (float *) malloc(MAX_PARTICLES * sizeof(float)); assert( pos_y != NULL );
+    vx = (float *) malloc(MAX_PARTICLES * sizeof(float)); assert( vx != NULL );
+    vy = (float *) malloc(MAX_PARTICLES * sizeof(float)); assert( vy != NULL );
+    fx = (float *) malloc(MAX_PARTICLES * sizeof(float)); assert( fx != NULL );
+    fy = (float *) malloc(MAX_PARTICLES * sizeof(float)); assert( fy != NULL );
+    rho = (float *) malloc(MAX_PARTICLES * sizeof(float)); assert( rho != NULL );
+    p = (float *) malloc(MAX_PARTICLES * sizeof(float)); assert( p != NULL );
+
+    //assert( particles != NULL );
 
     int n = DAM_PARTICLES;
     int nsteps = 50;
@@ -368,6 +382,14 @@ int main(int argc, char **argv)
     }
     printf("%f\n", hpc_gettime() - st);
 
-    free(particles);
+    //free(particles);
+    free(pos_x);
+    free(pos_y);
+    free(vx);
+    free(vy);
+    free(fx);
+    free(fy);
+    free(rho);
+    free(p);
     return EXIT_SUCCESS;
 }

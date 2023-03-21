@@ -175,7 +175,7 @@ void compute_density_pressure( void )
     const float POLY6 = 4.0 / (M_PI * pow(H, 8));
     v4f acc_rho = {0.f, 0.f, 0.f, 0.f};
 
-    #pragma omp parallel for schedule(dynamic, DYNAMIC_SIZE) default(none) shared(n_particles, particles) firstprivate(acc_rho)
+    #pragma omp parallel for schedule(dynamic, DYNAMIC_SIZE) default(none) shared(n_particles, pos_x, pos_y, vx, vy, fx, fy, rho, p) firstprivate(acc_rho)
     for (int i=0; i<n_particles; i++) {
         //particle_t *pi = &particles[i];
         rho[i] = 0.0;
@@ -220,7 +220,7 @@ void compute_forces( void )
     v4f acc_visc_x = {0.f, 0.f, 0.f, 0.f};
     v4f acc_visc_y = {0.f, 0.f, 0.f, 0.f};
 
-    #pragma omp parallel for schedule(dynamic, DYNAMIC_SIZE) default(none) shared(n_particles, particles) firstprivate(acc_press_x, acc_press_y, acc_visc_x, acc_visc_y)
+    #pragma omp parallel for schedule(dynamic, DYNAMIC_SIZE) default(none) shared(n_particles, pos_x, pos_y, vx, vy, fx, fy, rho, p) firstprivate(acc_press_x, acc_press_y, acc_visc_x, acc_visc_y)
     for (int i=0; i<n_particles; i++) {
         //particle_t *pi = &particles[i];
         float fpress_x = 0.0, fpress_y = 0.0;
@@ -278,7 +278,7 @@ void compute_forces( void )
 
 void integrate( void )
 {
-    #pragma omp parallel for schedule(dynamic, DYNAMIC_SIZE) default(none) shared(n_particles, particles)
+    #pragma omp parallel for schedule(dynamic, DYNAMIC_SIZE) default(none) shared(n_particles, pos_x, pos_y, vx, vy, fx, fy, rho, p)
     for (int i=0; i<n_particles; i++) {
         // forward Euler integration
         vx[i] += DT * fx[i] / rho[i];

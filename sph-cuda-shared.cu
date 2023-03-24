@@ -180,8 +180,9 @@ __global__ void compute_density_pressure( float* d_rho, float* d_pos_x, float * 
     d_rho[index_particle] = 0.0;
     
     // per ogni particella memorizzi 2 float
-    // numero di volte di cui devi fare una copia nella shared per tutto il kernel
     const int repetitions = (n_particles * 2 + FLOAT_PER_SHARED_MEM - 1) / FLOAT_PER_SHARED_MEM;
+    
+    // numero massimo di particelle da copiare ogni volta
     const int max_particles_to_copy = FLOAT_PER_SHARED_MEM / 2;
     
     for (int r = 0; r < repetitions;  r++) {

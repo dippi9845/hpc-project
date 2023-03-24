@@ -189,10 +189,12 @@ __global__ void compute_density_pressure( float* d_rho, float* d_pos_x, float * 
         const int global_map = r * max_particles_to_copy;
 
         if (r == repetitions - 1) {
+            // per l'ultima ripetizione fai solo le copie rimanenti
             end_copy = n_particles - global_map;
         }
 
         int copy_shift = 0;
+        // ogni thread ripete tutte le volte che il suo indice locale sta dentro al dominio di copie
         while (copy_shift * BLKDIM + lindex < end_copy) {
             const int local_index = copy_shift * BLKDIM + lindex;
 

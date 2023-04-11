@@ -166,7 +166,7 @@ __global__ void compute_density_pressure( float* d_rho, float* d_pos_x, float * 
     const int lindex = threadIdx.x;
     const int FLOAT_PER_SHARED_MEM = SHARED_MEM_PER_BLOCK / sizeof(float);
     
-    
+    // per ogni particella memorizzi 2 float
     __shared__ float sh_pos_x[FLOAT_PER_SHARED_MEM/2];
     __shared__ float sh_pos_y[FLOAT_PER_SHARED_MEM/2];
 
@@ -179,9 +179,10 @@ __global__ void compute_density_pressure( float* d_rho, float* d_pos_x, float * 
 
     d_rho[index_particle] = 0.0;
     
-    // per ogni particella memorizzi 2 float
-    // numero di volte di cui devi fare una copia nella shared per tutto il kernel
+    // nuemro di volte che devo eseguire le copie
     const int repetitions = (n_particles * 2 + FLOAT_PER_SHARED_MEM - 1) / FLOAT_PER_SHARED_MEM;
+    
+    // numero massimo di particelle da copiare ogni volta
     const int max_particles_to_copy = FLOAT_PER_SHARED_MEM / 2;
     
     for (int r = 0; r < repetitions;  r++) {
@@ -189,10 +190,12 @@ __global__ void compute_density_pressure( float* d_rho, float* d_pos_x, float * 
         const int global_map = r * max_particles_to_copy;
 
         if (r == repetitions - 1) {
+            // per l'ultima ripetizione fai solo le copie rimanenti
             end_copy = n_particles - global_map;
         }
 
         int copy_shift = 0;
+        // ogni thread ripete tutte le volte che il suo indice locale sta dentro al dominio di copie
         while (copy_shift * BLKDIM + lindex < end_copy) {
             const int local_index = copy_shift * BLKDIM + lindex;
 

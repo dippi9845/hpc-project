@@ -26,7 +26,7 @@ BIN_FOLDER=bin/
 
 all: sph omp-simd-SoA cuda-shared
 
-sph: sph.c
+sph: ${SRC_FOLDER}sph.c
 	gcc ${SRC_FOLDER}sph.c $(CFLAGS) $(LDLIBS) -o ${BIN_FOLDER}sph
 
 omp-dynamic: ${SRC_FOLDER}sph-omp-dynamic.c

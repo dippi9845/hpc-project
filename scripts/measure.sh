@@ -52,7 +52,7 @@ test_loop_parallel() {
 EXPORT_PATH=/media/dippi/Volume1/hpc_tests/
 MAX_THREAD=24
 REPETITIONS=8
-EXE_PATH=bin
+EXE_PATH=../bin
 MAX_STEPS=100
 MAX_PARTICLES=6000
 
@@ -68,15 +68,15 @@ MAX_PARTICLES=6000
 
 #echo "Finito la versione simd"
 
-echo "inizio omp"
+#echo "inizio omp"
 
-for (( i=1; $i<=$MAX_THREAD; i=$i+1 )); do
-    echo "    [th: $i]" 
-    test_loop_parallel "sph-omp" "omp" $i
-done
+#for (( i=1; $i<=$MAX_THREAD; i=$i+1 )); do
+#    echo "    [th: $i]" 
+#    test_loop_parallel "sph-omp-dynamic" "omp-dynamic" $i
+#done
 
-echo "fine omp"
-echo "inizio omp simd"
+#echo "fine omp"
+#echo "inizio omp simd"
 
 #for (( i=1; $i<=$MAX_THREAD; i=$i+1 )); do
 #    echo "    [th: $i]" 

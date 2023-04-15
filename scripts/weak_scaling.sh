@@ -109,7 +109,7 @@ for (( i=1 ; $i<=$MAX_THREAD ; i=$i+1 )); do
     echo "[TH: ${i}]"
     S=`printf "%.0f\n" $(echo "scale=15; ${C_S}*$i" | bc) 2>/dev/null`
     echo "[STEPS: $S]"
-    run_parallel $EXE_NAME $MAKE_NAME $i $PARTICLES $S
+    #run_parallel $EXE_NAME $MAKE_NAME $i $PARTICLES $S
 done
 
-omp_union_steps
+#omp_union_steps

@@ -19,39 +19,33 @@ LDLIBS=-lm
 OPM_FLAG=-fopenmp
 SIMD_FLAG=-march=native -O2 -ftree-vectorize -fopt-info-vec -funsafe-math-optimizations
 STEP_PERF=-D"STEP_PERFORMANCE"
+SRC_FOLDER=src/
+BIN_FOLDER=bin/
 
 .PHONY: clean
 
 all: sph omp-simd-SoA cuda-shared
 
 sph: sph.c
-	gcc sph.c $(CFLAGS) $(LDLIBS) -o bin/sph
+	gcc ${SRC_FOLDER}sph.c $(CFLAGS) $(LDLIBS) -o ${BIN_FOLDER}sph
 
-sph-step: sph.c
-	gcc sph.c $(STEP_PERF) $(CFLAGS) $(LDLIBS) -o bin/sph-step
+omp-dynamic: ${SRC_FOLDER}sph-omp-dynamic.c
+	gcc ${SRC_FOLDER}sph-omp.c $(CFLAGS) $(LDLIBS) $(OPM_FLAG) -o ${BIN_FOLDER}sph-omp
 
-omp: sph-omp.c
-	gcc sph-omp.c $(CFLAGS) $(LDLIBS) $(OPM_FLAG) -o bin/sph-omp
+simd: ${SRC_FOLDER}sph-simd.c
+	gcc ${SRC_FOLDER}sph-simd.c $(CFLAGS) $(LDLIBS) $(SIMD_FLAG) -o ${BIN_FOLDER}sph-simd
 
-simd: sph-simd.c
-	gcc sph-simd.c $(CFLAGS) $(LDLIBS) $(SIMD_FLAG) -o bin/sph-simd
+omp-simd-SoA: ${SRC_FOLDER}sph-omp-simd-SoA.c
+	gcc ${SRC_FOLDER}sph-omp-simd-SoA.c $(CFLAGS) $(LDLIBS) $(SIMD_FLAG) $(OPM_FLAG) -o ${BIN_FOLDER}sph-omp-simd-SoA
 
-omp-simd: sph-omp-simd.c
-	gcc sph-omp-simd.c $(CFLAGS) $(LDLIBS) $(SIMD_FLAG) $(OPM_FLAG) -o bin/sph-omp-simd
+cuda: ${SRC_FOLDER}sph-cuda.cu
+	nvcc ${SRC_FOLDER}sph-cuda.cu $(LDLIBS) -o ${BIN_FOLDER}sph-cuda
 
-omp-simd-SoA: sph-omp-simd-SoA.c
-	gcc sph-omp-simd-SoA.c $(CFLAGS) $(LDLIBS) $(SIMD_FLAG) $(OPM_FLAG) -o bin/sph-omp-simd-SoA
+cuda-SoA: ${SRC_FOLDER}sph-cuda-SoA.cu
+	nvcc ${SRC_FOLDER}sph-cuda-SoA.cu $(LDLIBS) -o ${BIN_FOLDER}sph-cuda-SoA
 
-cuda: sph-cuda.cu
-	nvcc sph-cuda.cu $(LDLIBS) -o bin/sph-cuda
-
-cuda-SoA: sph-cuda-SoA.cu
-	nvcc sph-cuda-SoA.cu $(LDLIBS) -o bin/sph-cuda-SoA
-
-cuda-shared: sph-cuda-shared.cu
-	nvcc sph-cuda-shared.cu $(LDLIBS) -o bin/sph-cuda-shared
-
-
+cuda-shared: ${SRC_FOLDER}sph-cuda-shared.cu
+	nvcc ${SRC_FOLDER}sph-cuda-shared.cu $(LDLIBS) -o ${BIN_FOLDER}sph-cuda-shared
 
 clean:
 	\rm -f bin/sph*

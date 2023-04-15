@@ -22,7 +22,7 @@ STEP_PERF=-D"STEP_PERFORMANCE"
 
 .PHONY: clean
 
-all: sph omp cuda
+all: sph omp-simd-SoA cuda-shared
 
 sph: sph.c
 	gcc sph.c $(CFLAGS) $(LDLIBS) -o bin/sph

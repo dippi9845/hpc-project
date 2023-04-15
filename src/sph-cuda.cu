@@ -324,15 +324,9 @@ int main(int argc, char **argv)
     
     cudaMalloc((void **) &d_sums, block_num * sizeof(float));
 
-#ifndef STEP_PERFORMANCE
     double loop_start = hpc_gettime();
-#endif
 
     for (int s=0; s<nsteps; s++) {
-
-#ifdef STEP_PERFORMANCE
-        double start = hpc_gettime();
-#endif
         compute_density_pressure<<<block_num, BLKDIM>>>(d_particles, n);
         
         cudaDeviceSynchronize();
@@ -356,20 +350,15 @@ int main(int argc, char **argv)
         for (int i = 0; i < block_num; i++)
             avg += h_sums[i];
 
-#ifdef STEP_PERFORMANCE
-        double end = hpc_gettime() - start;
-        printf("%f;", end);
-#endif
-
+        if (s % 10 == 0) {
+            printf("step %5d, avgV=%f\n", s, avg);
+        }
     }
-
-#ifndef STEP_PERFORMANCE
 
     double loop_end = hpc_gettime() - loop_start;
     
     printf("%f\n", loop_end);
 
-#endif
 
 
     cudaFree(d_particles);

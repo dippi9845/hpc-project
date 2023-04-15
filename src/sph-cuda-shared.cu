@@ -469,6 +469,10 @@ int main(int argc, char **argv)
         for (int i = 0; i < block_num; i++) {
             avg += h_sums[i];
         }
+
+        if (s % 10 == 0) {
+            printf("step %5d, avgV=%f\n", s, avg);
+        }
     }
 
     double loop_end = hpc_gettime() - loop_start;

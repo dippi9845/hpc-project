@@ -40,3 +40,5 @@ Per compilare solo i sorgenti per la consegna
 ```bash
 make consegna
 ```
+
+Tutti gli eseguibili verranno messi nella cartella `bin`

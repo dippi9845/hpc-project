@@ -24,7 +24,10 @@ BIN_FOLDER=bin/
 
 .PHONY: clean
 
-all: sph omp-simd-SoA cuda-shared
+all: sph omp-simd-SoA cuda-shared sph-quad-three
+
+sph-quad-three: ${SRC_FOLDER}sph-quad-three.c
+	gcc ${SRC_FOLDER}sph-quad-three.c $(CFLAGS) $(LDLIBS) -o ${BIN_FOLDER}sph-quad-three
 
 sph: ${SRC_FOLDER}sph.c
 	gcc ${SRC_FOLDER}sph.c $(CFLAGS) $(LDLIBS) -o ${BIN_FOLDER}sph

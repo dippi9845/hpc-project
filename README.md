@@ -1,4 +1,7 @@
-# hpc-project
+# HPC-PROJECT
+
+### Directory
+
 ```
 .
 │

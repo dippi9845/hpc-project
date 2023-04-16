@@ -42,3 +42,7 @@ make consegna
 ```
 
 Tutti gli eseguibili verranno messi nella cartella `bin`
+Per cancellare gli eseguibili
+```bash
+make clean
+```

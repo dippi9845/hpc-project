@@ -1,3 +1,7 @@
+/*
+Filipo Di Pietro 971606
+*/
+
 /****************************************************************************
  *
  * sph.c -- Smoothed Particle Hydrodynamics

@@ -1,14 +1,10 @@
 # hpc-project
 ```
 .
-├── bin
-│   ├── sph
-│   ├── sph-cuda-shared
-│   ├── sph-omp-one-thread-pool
-│   └── sph-omp-simd-SoA
+│
 ├── LICENSE
 ├── Makefile
-├── scripts
+├── scripts   <--- script per eseguire misurazioni e test
 │   ├── combine_result.sh
 │   ├── gen-test-cases.sh
 │   ├── measure.sh
@@ -16,7 +12,6 @@
 │   ├── test.sh
 │   ├── varianza.sh
 │   └── weak_scaling.sh
-├── spunti.txt
 └── src
     ├── cuda-sph.cu  <--- File cuda che consegno in definitiva
     ├── hpc.h

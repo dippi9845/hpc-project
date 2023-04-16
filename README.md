@@ -7,6 +7,7 @@
 │
 ├── LICENSE
 ├── Makefile
+├── report.pdf
 ├── scripts   <--- script per eseguire misurazioni e test
 │   ├── combine_result.sh
 │   ├── gen-test-cases.sh

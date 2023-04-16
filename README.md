@@ -29,3 +29,14 @@
     └── sph-simd.c   <--- versione simd (sezione 2.1)
 
 ```
+
+### Compiling
+Per compilare tutti i sorgenti.
+```bash
+make all
+```
+
+Per compilare solo i sorgenti per la consegna
+```bash
+make consegna
+```

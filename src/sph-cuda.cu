@@ -317,8 +317,6 @@ int main(int argc, char **argv)
 
     particle_t *d_particles;
     float h_sums[MAX_BLOCK];
-    //float d_sums[(MAX_PARTICLES + BLKDIM - 1) / BLKDIM];
-    //float * h_sums = (float *) malloc(MAX_PARTICLES * sizeof(float));
     float *d_sums;
     int block_num = (n + BLKDIM - 1)/BLKDIM;
 

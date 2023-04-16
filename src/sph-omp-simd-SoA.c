@@ -181,12 +181,11 @@ void compute_density_pressure( void )
 
     #pragma omp parallel for schedule(dynamic, DYNAMIC_SIZE) default(none) shared(n_particles, pos_x, pos_y, vx, vy, fx, fy, rho, p) firstprivate(acc_rho)
     for (int i=0; i<n_particles; i++) {
-        //particle_t *pi = &particles[i];
+
         rho[i] = 0.0;
         int near = 0;
+        
         for (int j=0; j<n_particles; j++) {
-            //const particle_t *pj = &particles[j];
-
             const float dx = pos_x[j] - pos_x[i];
             const float dy = pos_y[j] - pos_y[i];
             const float d2 = dx*dx + dy*dy;
@@ -219,6 +218,7 @@ void compute_forces( void )
     const float VISC_LAP = 40.0 / (M_PI * pow(H, 5));
     const float EPS = 1e-6;
 
+    /* vectors to accumulate the values that will be added */
     v4f acc_press_x = {0.f, 0.f, 0.f, 0.f};
     v4f acc_press_y = {0.f, 0.f, 0.f, 0.f};
     v4f acc_visc_x = {0.f, 0.f, 0.f, 0.f};
@@ -226,13 +226,12 @@ void compute_forces( void )
 
     #pragma omp parallel for schedule(dynamic, DYNAMIC_SIZE) default(none) shared(n_particles, pos_x, pos_y, vx, vy, fx, fy, rho, p) firstprivate(acc_press_x, acc_press_y, acc_visc_x, acc_visc_y)
     for (int i=0; i<n_particles; i++) {
-        //particle_t *pi = &particles[i];
+
         float fpress_x = 0.0, fpress_y = 0.0;
         float fvisc_x = 0.0, fvisc_y = 0.0;
         int near = 0;
 
         for (int j=0; j<n_particles; j++) {
-            //const particle_t *pj = &particles[j];
 
             if (i == j)
                 continue;
@@ -244,11 +243,10 @@ void compute_forces( void )
             if (dist < H) {
                 const float norm_dx = dx / dist;
                 const float norm_dy = dy / dist;
-                
-                // compute pressure force contribution
+    
+                /* loads the values into vectors */
                 acc_press_x[near] = -norm_dx * MASS * (p[i] + p[j]) / (2 * rho[j]) * SPIKY_GRAD * pow(H - dist, 3);
                 acc_press_y[near] = -norm_dy * MASS * (p[i] + p[j]) / (2 * rho[j]) * SPIKY_GRAD * pow(H - dist, 3);
-                // compute viscosity force contribution
                 acc_visc_x[near] = VISC * MASS * (vx[j] - vx[i]) / rho[j] * VISC_LAP * (H - dist);
                 acc_visc_y[near] = VISC * MASS * (vy[j] - vy[i]) / rho[j] * VISC_LAP * (H - dist);
                 
@@ -266,14 +264,13 @@ void compute_forces( void )
         const float fgrav_x = Gx * MASS / rho[i];
         const float fgrav_y = Gy * MASS / rho[i];
 
-
+        /* handle remaining */
         for (int index = 0; index < near; index++) {
             fpress_x += acc_press_x[index];
             fpress_y += acc_press_y[index];
             fvisc_x += acc_visc_x[index];
             fvisc_y += acc_visc_y[index];
         }
-        /*-------------------------------------*/
 
         fx[i] = fpress_x + fvisc_x + fgrav_x;
         fy[i] = fpress_y + fvisc_y + fgrav_y;

@@ -333,7 +333,7 @@ int main(int argc, char **argv)
            iteration) */
         const float avg = update();
         if (s % 10 == 0) {
-            //printf("step %5d, avgV=%f\n", s, avg);
+            printf("step %5d, avgV=%f\n", s, avg);
         }
     }
     double loop_end = hpc_gettime() - loop_start;

@@ -53,6 +53,12 @@ typedef struct QuadThreeNode {
     Container square_container;
 } QuadThreeNode;
 
+typedef struct ParticlesLink {
+    Container * square;
+} ParticlesLink;
+
+ParticlesLink * link;
+
 Container * newEmptyContainerByPoints(const Point points[],  const QuadThreeNode * owner);
 Container * newEmptyContainerBySide(float side, const Point * center, const QuadThreeNode * owner);
 

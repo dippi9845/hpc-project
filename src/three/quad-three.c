@@ -9,6 +9,7 @@ Point *newPoint(float x, float y) {
 }
 
 Container *findNearContainerForPoint(const Point *point, const Container *square) {
+    // TODO: implementare sta roba
     return NULL;
 }
 
@@ -19,19 +20,31 @@ void insertIntoContainer(Container *square, unsigned int particleIndex) {
         if (square->particles[i] == EMPTY_INDEX) {
             insered = 1;
             square->particles[i] = particleIndex;
+            link[particleIndex] = square;
             break;
         }
     }
 
     if (!insered) {
         // split
-        splitQuadNode(square->owner_node);
+        const Point * parPos = pointFromParticle(particles[particleIndex]);
+        const QuadThreeNode * owner = square->owner_node;
+        splitQuadNode(owner);
+
+        for (int j = 0; j < CHILDREN_NUM; j++) {
+            const QuadThreeNode * current = owner->childrens[j];
+
+            if (isPointContained(parPos, &(owner->square_container))) {
+                insertIntoContainer(&(current->square_container), particleIndex);
+            }
+        }
     }
 }
 
 void moveParticle(unsigned int particleIndex, Container *from, Container *to) {
     unsigned int particle = from->particles[particleIndex];
     from->particles[particleIndex] = EMPTY_INDEX;
+    link[particleIndex] = to;
     insertIntoContainer(to, particle);
 }
 
@@ -161,10 +174,10 @@ void splitQuadNode(QuadThreeNode * node) {
 
         for (int i = 0; i < CONTAINER_CAPACITY; i++) {
             unsigned int particleIndex = from->particles[i];
-
+            Point * parPos = pointFromParticle(particles[particleIndex]);
+            
             for (int j = 0; j < CHILDREN_NUM; j++) {
                 const QuadThreeNode * current = node->childrens[j];
-                Point * parPos = pointFromParticle(particles[particleIndex]);
 
                 if (isPointContained(parPos, &(node->square_container))) {
                     moveParticle(i, from, &(current->square_container));

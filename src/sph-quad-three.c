@@ -368,7 +368,10 @@ int main(int argc, char **argv)
     srand(1234);
 
     particles = (particle_t*)malloc(MAX_PARTICLES * sizeof(*particles));
+    link = (Container **) malloc(MAX_PARTICLES * sizeof(Container *));
+
     assert( particles != NULL );
+    assert( link != NULL );
 
 #ifdef GUI
     glutInitWindowSize(WINDOW_WIDTH, WINDOW_HEIGHT);

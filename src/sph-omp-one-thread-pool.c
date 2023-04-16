@@ -326,15 +326,18 @@ int main(int argc, char **argv)
 
     init_sph(n);
 
+    double loop_start = hpc_gettime();
     for (int s=0; s<nsteps; s++) {
         /* the average velocities MUST be computed at each step, even
            if it is not shown (to ensure constant workload per
            iteration) */
         const float avg = update();
         if (s % 10 == 0) {
-            printf("step %5d, avgV=%f\n", s, avg);
+            //printf("step %5d, avgV=%f\n", s, avg);
         }
     }
+    double loop_end = hpc_gettime() - loop_start;
+    printf("took: %fs\n", loop_end);
 
     free(particles);
     return EXIT_SUCCESS;

@@ -10,7 +10,10 @@ run_parallel() {
     CURRENT_DIR="${EXPORT_PATH}${EXE_NAME}"
     CURRENT_EXE="${EXE_PATH}/${EXE_NAME}"
 
-    make $MAKE_NAME 1>/dev/null 2>&1 
+    cd ..
+    make $MAKE_NAME 1>/dev/null 2>&1
+    cd scripts
+
     mkdir $CURRENT_DIR 2>/dev/null
 
     TO_PRINT=""
@@ -87,11 +90,11 @@ omp_union_steps() {
 
 REPETITIONS=8
 MAX_THREAD=24
-MAKE_NAME="omp"
-EXE_NAME="sph-omp"
+MAKE_NAME="omp-one-thread-pool"
+EXE_NAME="sph-omp-one-thread-pool"
 STEPS=100
 PARTICLES=1500
-EXE_PATH=bin
+EXE_PATH=../bin
 EXPORT_PATH=/media/dippi/Volume1/hpc_tests/
 C_P="1500"
 C_S="100"
@@ -109,7 +112,7 @@ for (( i=1 ; $i<=$MAX_THREAD ; i=$i+1 )); do
     echo "[TH: ${i}]"
     S=`printf "%.0f\n" $(echo "scale=15; ${C_S}*$i" | bc) 2>/dev/null`
     echo "[STEPS: $S]"
-    #run_parallel $EXE_NAME $MAKE_NAME $i $PARTICLES $S
+    run_parallel $EXE_NAME $MAKE_NAME $i $PARTICLES $S
 done
 
-#omp_union_steps
+omp_union_steps

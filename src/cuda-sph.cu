@@ -1,3 +1,7 @@
+/*
+Filipo Di Pietro 971606
+*/
+
 /****************************************************************************
  *
  * sph.c -- Smoothed Particle Hydrodynamics
@@ -28,8 +32,7 @@
  * SOFTWARE.
  *
  ****************************************************************************/
-#include "src/hpc.h"
-
+#include "hpc.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -180,28 +183,29 @@ __global__ void compute_density_pressure( float* d_rho, float* d_pos_x, float * 
 
     d_rho[index_particle] = 0.0;
     
-    // nuemro di volte che devo eseguire le copie
+    /* number of times I have to run the copies which strongly depends on the capacity of the shared memory */
     const int repetitions = (n_particles * 2 + FLOAT_PER_SHARED_MEM - 1) / FLOAT_PER_SHARED_MEM;
     
-    // numero massimo di particelle da copiare ogni volta
+    /* maximum number of particles to copy each time */
     const int max_particles_to_copy = FLOAT_PER_SHARED_MEM / 2;
     
     for (int r = 0; r < repetitions;  r++) {
         int end_copy = max_particles_to_copy;
-        const int global_map = r * max_particles_to_copy;
+        /* global index to start copying particles info */
+        const int start_global_index = r * max_particles_to_copy;
 
+        /* for the last iteration just make the remaining copies */
         if (r == repetitions - 1) {
-            // per l'ultima ripetizione fai solo le copie rimanenti
-            end_copy = n_particles - global_map;
+            end_copy = n_particles - start_global_index;
         }
 
         int copy_shift = 0;
-        // ogni thread ripete tutte le volte che il suo indice locale sta dentro al dominio di copie
+        /* each thread iterates as many times as its local index is inside the copy domain */ 
         while (copy_shift * BLKDIM + lindex < end_copy) {
             const int local_index = copy_shift * BLKDIM + lindex;
 
-            sh_pos_x[local_index] = d_pos_x[global_map + local_index];
-            sh_pos_y[local_index] = d_pos_y[global_map + local_index];
+            sh_pos_x[local_index] = d_pos_x[start_global_index + local_index];
+            sh_pos_y[local_index] = d_pos_y[start_global_index + local_index];
             copy_shift++;
         }
 
@@ -245,23 +249,30 @@ __global__ void compute_forces( float* d_rho, float* d_pos_x, float * d_pos_y, f
     __shared__ float sh_pos_x[FLOAT_PER_SHARED_MEM/2];
     __shared__ float sh_pos_y[FLOAT_PER_SHARED_MEM/2];
 
+    /* number of times I have to run the copies which strongly depends on the capacity of the shared memory */
     const int repetitions = (n_particles * 2 + FLOAT_PER_SHARED_MEM - 1) / FLOAT_PER_SHARED_MEM;
+
+    /* maximum number of particles to copy each time */
     const int max_particles_to_copy = FLOAT_PER_SHARED_MEM / 2;
     
     for (int r = 0; r < repetitions;  r++) {
         int end_copy = max_particles_to_copy;
-        const int global_map = r * max_particles_to_copy;
+        /* global index to start copying particles info */
+        const int start_global_index = r * max_particles_to_copy;
 
+        /* for the last iteration just make the remaining copies */
         if (r == repetitions - 1) {
-            end_copy = n_particles - global_map;
+            end_copy = n_particles - start_global_index;
         }
 
         int copy_shift = 0;
+        /* each thread iterates as many times as its local index is inside the copy domain */ 
+
         while (copy_shift * BLKDIM + lindex < end_copy) {
             const int local_index = copy_shift * BLKDIM + lindex;
 
-            sh_pos_x[local_index] = d_pos_x[global_map + local_index];
-            sh_pos_y[local_index] = d_pos_y[global_map + local_index];
+            sh_pos_x[local_index] = d_pos_x[start_global_index + local_index];
+            sh_pos_y[local_index] = d_pos_y[start_global_index + local_index];
             copy_shift++;
         }
 
@@ -269,7 +280,7 @@ __global__ void compute_forces( float* d_rho, float* d_pos_x, float * d_pos_y, f
 
         if (index_particle < n_particles)  {
             for (int j=0; j< end_copy; j++) {
-                const int j_global = global_map + j;
+                const int j_global = start_global_index + j;
 
                 if (index_particle == j_global)
                     continue;

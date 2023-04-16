@@ -24,19 +24,24 @@ BIN_FOLDER=bin/
 
 .PHONY: clean
 
-all: sph omp-simd-SoA cuda-shared
+all: sph simd omp-dynamic omp-one-thread-pool omp-simd-SoA cuda cuda-SoA cuda-shared
+
+consegna: omp-simd-SoA cuda-shared
 
 sph: ${SRC_FOLDER}sph.c
 	gcc ${SRC_FOLDER}sph.c $(CFLAGS) $(LDLIBS) -o ${BIN_FOLDER}sph
 
-omp-dynamic: ${SRC_FOLDER}sph-omp-dynamic.c
-	gcc ${SRC_FOLDER}sph-omp.c $(CFLAGS) $(LDLIBS) $(OPM_FLAG) -o ${BIN_FOLDER}sph-omp
-
 simd: ${SRC_FOLDER}sph-simd.c
 	gcc ${SRC_FOLDER}sph-simd.c $(CFLAGS) $(LDLIBS) $(SIMD_FLAG) -o ${BIN_FOLDER}sph-simd
 
+omp-dynamic: ${SRC_FOLDER}sph-omp-dynamic.c
+	gcc ${SRC_FOLDER}sph-omp-dynamic.c $(CFLAGS) $(LDLIBS) $(OPM_FLAG) -o ${BIN_FOLDER}sph-omp-dynamic
+
 omp-simd-SoA: ${SRC_FOLDER}sph-omp-simd-SoA.c
 	gcc ${SRC_FOLDER}sph-omp-simd-SoA.c $(CFLAGS) $(LDLIBS) $(SIMD_FLAG) $(OPM_FLAG) -o ${BIN_FOLDER}sph-omp-simd-SoA
+
+omp-one-thread-pool: ${SRC_FOLDER}sph-omp-one-thread-pool.c
+	gcc ${SRC_FOLDER}sph-omp-one-thread-pool.c $(CFLAGS) $(LDLIBS) $(OPM_FLAG) -o ${BIN_FOLDER}sph-omp-one-thread-pool
 
 cuda: ${SRC_FOLDER}sph-cuda.cu
 	nvcc ${SRC_FOLDER}sph-cuda.cu $(LDLIBS) -o ${BIN_FOLDER}sph-cuda

@@ -157,15 +157,16 @@ void init_sph( int n )
  **/
 
 void accumulate_rho(particle_t* pi, particle_t * pj) {
-    const float HSQ = H * H;
-    const float POLY6 = 4.0 / (M_PI * pow(H, 8));
+    if (pi != pj) {
+        const float HSQ = H * H;
+        const float POLY6 = 4.0 / (M_PI * pow(H, 8));
 
-    const float dx = pj->x - pi->x;
-    const float dy = pj->y - pi->y;
-    const float d2 = dx*dx + dy*dy;
-    
-    pi->rho += MASS * POLY6 * pow(HSQ - d2, 3.0);
-
+        const float dx = pj->x - pi->x;
+        const float dy = pj->y - pi->y;
+        const float d2 = dx*dx + dy*dy;
+        
+        pi->rho += MASS * POLY6 * pow(HSQ - d2, 3.0);
+    }
 }
 
 void compute_density_pressure( void )
@@ -189,22 +190,25 @@ void compute_density_pressure( void )
 
 
 void accumulate_visc_press(particle_t * pi, particle_t * pj) {
-    const float SPIKY_GRAD = -10.0 / (M_PI * pow(H, 5));
-    const float VISC_LAP = 40.0 / (M_PI * pow(H, 5));
-    const float EPS = 1e-6;
+    if (pi != pj) {
+        const float SPIKY_GRAD = -10.0 / (M_PI * pow(H, 5));
+        const float VISC_LAP = 40.0 / (M_PI * pow(H, 5));
+        const float EPS = 1e-6;
 
-    const float dx = pj->x - pi->x;
-    const float dy = pj->y - pi->y;
-    const float dist = hypotf(dx, dy) + EPS; // avoids division by zero later on
-    
-    const float norm_dx = dx / dist;
-    const float norm_dy = dy / dist;
-    // compute pressure force contribution
-    pi->fpress_x += -norm_dx * MASS * (pi->p + pj->p) / (2 * pj->rho) * SPIKY_GRAD * pow(H - dist, 3);
-    pi->fpress_y += -norm_dy * MASS * (pi->p + pj->p) / (2 * pj->rho) * SPIKY_GRAD * pow(H - dist, 3);
-    // compute viscosity force contribution
-    pi->fvisc_x += VISC * MASS * (pj->vx - pi->vx) / pj->rho * VISC_LAP * (H - dist);
-    pi->fvisc_y += VISC * MASS * (pj->vy - pi->vy) / pj->rho * VISC_LAP * (H - dist);
+        const float dx = pj->x - pi->x;
+        const float dy = pj->y - pi->y;
+        const float dist = hypotf(dx, dy) + EPS; // avoids division by zero later on
+        
+        const float norm_dx = dx / dist;
+        const float norm_dy = dy / dist;
+        // compute pressure force contribution
+        pi->fpress_x += -norm_dx * MASS * (pi->p + pj->p) / (2 * pj->rho) * SPIKY_GRAD * pow(H - dist, 3);
+        pi->fpress_y += -norm_dy * MASS * (pi->p + pj->p) / (2 * pj->rho) * SPIKY_GRAD * pow(H - dist, 3);
+        // compute viscosity force contribution
+        pi->fvisc_x += VISC * MASS * (pj->vx - pi->vx) / pj->rho * VISC_LAP * (H - dist);
+        pi->fvisc_y += VISC * MASS * (pj->vy - pi->vy) / pj->rho * VISC_LAP * (H - dist);
+
+    }
 }
 
 

@@ -70,14 +70,15 @@ const float BOUND_DAMPING = -0.5;
 
 const int MAX_PARTICLES = 5000;
 #define WINDOW_WIDTH 1024
-#define WINDOW_HEIGHT 768
+// #define WINDOW_HEIGHT 768
 
 #else
 
 const int MAX_PARTICLES = 20000;
 // Larger window size to accommodate more particles
 #define WINDOW_WIDTH 3000
-#define WINDOW_HEIGHT 2000
+// #define WINDOW_HEIGHT 2000
+#define WINDOW_HEIGHT WINDOW_WIDTH
 
 #endif
 
@@ -87,6 +88,8 @@ const float VIEW_WIDTH = 1.5 * WINDOW_WIDTH;
 const float VIEW_HEIGHT = 1.5 * WINDOW_HEIGHT;
 
 int n_particles = 0;    // number of currently active particles
+
+QuadThreeNode * quad_three = NULL; // quad-three used for fiding particles
 
 /**
  * Return a random value in [a, b]
@@ -136,13 +139,18 @@ int is_in_domain( float x, float y )
 void init_sph( int n )
 {
     n_particles = 0;
-    //printf("Initializing with %d particles\n", n);
+    printf("Initializing with %d particles\n", n);
 
     for (float y = EPS; y < VIEW_HEIGHT - EPS; y += H) {
         for (float x = EPS; x <= VIEW_WIDTH * 0.8f; x += H) {
             if (n_particles < n) {
                 float jitter = rand() / (float)RAND_MAX;
                 init_particle(particles + n_particles, x+jitter, y);
+                
+                Point * pos = pointFromParticle(particles + n_particles);
+                insertParticle(quad_three, pos, n_particles);
+                free(pos);
+
                 n_particles++;
             } else {
                 return;
@@ -150,6 +158,8 @@ void init_sph( int n )
         }
     }
     assert(n_particles == n);
+
+    printf("Initialized\n");
 }
 
 /**
@@ -182,7 +192,7 @@ void compute_density_pressure( void )
         particle_t *pi = &particles[i];
         pi->rho = 0.0;
         // raggio è HSQ
-        // TODO: apply alla particelle in range
+        applyToLeafInRange(quad_three, HSQ, pi, accumulate_rho);
 
         pi->p = GAS_CONST * (pi->rho - REST_DENS);
     }
@@ -228,7 +238,7 @@ void compute_forces( void )
         pi->fvisc_y = 0.0;
 
         // raggio è H
-        // TODO: applay in range
+        applyToLeafInRange(quad_three, H, pi, accumulate_visc_press);
 
         const float fgrav_x = Gx * MASS / pi->rho;
         const float fgrav_y = Gy * MASS / pi->rho;
@@ -264,6 +274,8 @@ void integrate( void )
             p->vy *= BOUND_DAMPING;
             p->y = VIEW_HEIGHT - EPS;
         }
+
+        updateContainerForParticle(i);
     }
 }
 
@@ -381,9 +393,13 @@ int main(int argc, char **argv)
 
     particles = (particle_t*)malloc(MAX_PARTICLES * sizeof(*particles));
     link = (Container **) malloc(MAX_PARTICLES * sizeof(Container *));
+    Point * center = newPoint(WINDOW_WIDTH / 2.f, WINDOW_HEIGHT / 2.f);
+    quad_three = newQuadNodeBySide(NULL, WINDOW_HEIGHT, center);
+    free(center); // no more useful
 
     assert( particles != NULL );
     assert( link != NULL );
+    assert( quad_three != NULL );
 
 #ifdef GUI
     glutInitWindowSize(WINDOW_WIDTH, WINDOW_HEIGHT);

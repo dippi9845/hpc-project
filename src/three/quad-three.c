@@ -1,9 +1,11 @@
 #include "quad-three.h"
+#include "../particle.h"
+
 #include <assert.h>
 #include <stdlib.h>
 #include <math.h>
 
-#define SQRT2 sqrtf(2.f)/2;
+#define SQRT2 sqrtf(2.f)/2.f;
 
 Point *newPoint(float x, float y) {
     Point * rtr = (Point *)malloc(sizeof(Point));
@@ -12,7 +14,7 @@ Point *newPoint(float x, float y) {
 }
 
 void updateContainerForParticle(unsigned int indexParticle) {
-    const Point * parPos = pointFromParticle(particles[indexParticle]);
+    Point * parPos = pointFromParticle(particles + indexParticle);
     Container * myContainer = link[indexParticle];
     unsigned int containerIndex;
 
@@ -33,7 +35,7 @@ void updateContainerForParticle(unsigned int indexParticle) {
         while (validFather->childrens[0] != NULL)
         {
             for (int i = 0; i < CHILDREN_NUM; i++) {
-                const QuadThreeNode * current = validFather->childrens[i];
+                QuadThreeNode * current = validFather->childrens[i];
 
                 if (isPointContained(parPos, &(current->square_container))) {
                     validFather = current;
@@ -45,6 +47,7 @@ void updateContainerForParticle(unsigned int indexParticle) {
         moveParticle(containerIndex, myContainer, &(validFather->square_container));
         
     }
+    free(parPos);
 }
 
 void insertIntoContainer(Container *square, unsigned int particleIndex) {
@@ -61,17 +64,18 @@ void insertIntoContainer(Container *square, unsigned int particleIndex) {
 
     if (!insered) {
         // split
-        const Point * parPos = pointFromParticle(particles[particleIndex]);
-        const QuadThreeNode * owner = square->owner_node;
+        Point * parPos = pointFromParticle(particles + particleIndex);
+        QuadThreeNode * owner = square->owner_node;
         splitQuadNode(owner);
 
         for (int j = 0; j < CHILDREN_NUM; j++) {
-            const QuadThreeNode * current = owner->childrens[j];
+            QuadThreeNode * current = owner->childrens[j];
 
             if (isPointContained(parPos, &(current->square_container))) {
                 insertIntoContainer(&(current->square_container), particleIndex);
             }
         }
+        free(parPos);
     }
 }
 
@@ -86,7 +90,7 @@ int isPointContained(const Point * point, const Container * square) {
     return fabsf(point->x - square->center.x) <= square->l / 2 && fabsf(point->y - square->center.y) <= square->l / 2;
 }
 
-Container *newEmptyContainerByPoints(const Point points[], const QuadThreeNode *owner) {
+Container *newEmptyContainerByPoints(const Point points[], QuadThreeNode *owner) {
     Container * rtr = (Container *) malloc(sizeof(Container));
     
     rtr->owner_node = owner;
@@ -108,7 +112,7 @@ Container *newEmptyContainerByPoints(const Point points[], const QuadThreeNode *
     return rtr;
 }
 
-Container *newEmptyContainerBySide(float side, const Point *center, const QuadThreeNode *owner) {
+Container *newEmptyContainerBySide(float side, const Point *center, QuadThreeNode *owner) {
     Container * rtr = (Container *) malloc(sizeof(Container));
     
     rtr->owner_node = owner;
@@ -142,7 +146,7 @@ Container *newEmptyContainerBySide(float side, const Point *center, const QuadTh
     return rtr;
 }
 
-QuadThreeNode * newQuadNodeByPoints(const QuadThreeNode * father, const Point points[]) {
+QuadThreeNode * newQuadNodeByPoints(QuadThreeNode * father, const Point points[]) {
     QuadThreeNode * rtr = (QuadThreeNode *) malloc(sizeof(QuadThreeNode));
     
     for (int i = 0; i < CHILDREN_NUM; i++) {
@@ -160,7 +164,7 @@ QuadThreeNode * newQuadNodeByPoints(const QuadThreeNode * father, const Point po
     return rtr;
 }
 
-QuadThreeNode * newQuadNodeBySide(const QuadThreeNode * father, float side, const Point * center) {
+QuadThreeNode * newQuadNodeBySide(QuadThreeNode * father, float side, const Point * center) {
     QuadThreeNode * rtr = (QuadThreeNode *) malloc(sizeof(QuadThreeNode));
     
     for (int i = 0; i < CHILDREN_NUM; i++) {
@@ -208,21 +212,23 @@ void splitQuadNode(QuadThreeNode * node) {
 
         for (int i = 0; i < CONTAINER_CAPACITY; i++) {
             unsigned int particleIndex = from->particles[i];
-            Point * parPos = pointFromParticle(particles[particleIndex]);
+            Point * parPos = pointFromParticle(particles + particleIndex);
 
             for (int j = 0; j < CHILDREN_NUM; j++) {
-                const QuadThreeNode * current = node->childrens[j];
+                QuadThreeNode * current = node->childrens[j];
 
                 if (isPointContained(parPos, &(current->square_container))) {
                     moveParticle(i, from, &(current->square_container));
                 }
             }
+
+            free(parPos);
         }
 
     }
 }
 
-Container * findContainerByPoint(const QuadThreeNode * head, const Point * point) {
+Container * findContainerByPoint(QuadThreeNode * head, const Point * point) {
     
     if (head->childrens[0] == NULL)
         return &(head->square_container);
@@ -239,7 +245,7 @@ Container * findContainerByPoint(const QuadThreeNode * head, const Point * point
     return NULL;
 }
 
-void insertParticle(const QuadThreeNode * head, const Point * position, unsigned int indexParticle) {
+void insertParticle(QuadThreeNode * head, const Point * position, unsigned int indexParticle) {
     Container * to_add = findContainerByPoint(head, position);
     if (to_add != NULL) {
         insertIntoContainer(to_add, indexParticle);
@@ -250,9 +256,9 @@ Point * pointFromParticle(const particle_t * particle) {
     return newPoint(particle->x, particle->y);
 }
 
-void applyToLeafInRange(const QuadThreeNode * head ,float radius, const particle_t * pivot, void (* toApply)(particle_t *, particle_t *)) {
+void applyToLeafInRange(const QuadThreeNode * head ,float radius, particle_t * pivot, void (* toApply)(particle_t *, particle_t *)) {
     const float side = head->square_container.l;
-    const float halfDiagonal = SQRT2 * side;
+    const float halfDiagonal = side * SQRT2;
     const float maxDistance = halfDiagonal + radius;
     
     for (int i = 0; i < CHILDREN_NUM; i++) {

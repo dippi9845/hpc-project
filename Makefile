@@ -26,8 +26,8 @@ BIN_FOLDER=bin/
 
 all: sph omp-simd-SoA cuda-shared sph-quad-three
 
-sph-quad-three: ${SRC_FOLDER}sph-quad-three.c
-	gcc ${SRC_FOLDER}sph-quad-three.c $(CFLAGS) $(LDLIBS) -o ${BIN_FOLDER}sph-quad-three
+sph-quad-three: ${SRC_FOLDER}sph-quad-three.c ${SRC_FOLDER}three/quad-three.h ${SRC_FOLDER}three/quad-three.c
+	gcc ${SRC_FOLDER}sph-quad-three.c ${SRC_FOLDER}particle.h ${SRC_FOLDER}three/quad-three.h ${SRC_FOLDER}three/quad-three.c $(CFLAGS) $(LDLIBS) -o ${BIN_FOLDER}sph-quad-three
 
 sph: ${SRC_FOLDER}sph.c
 	gcc ${SRC_FOLDER}sph.c $(CFLAGS) $(LDLIBS) -o ${BIN_FOLDER}sph

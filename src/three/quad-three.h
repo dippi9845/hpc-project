@@ -57,25 +57,25 @@ typedef struct QuadThreeNode {
 } QuadThreeNode;
 
 
-Container * newEmptyContainerByPoints(const Point points[],  const QuadThreeNode * owner);
-Container * newEmptyContainerBySide(float side, const Point * center, const QuadThreeNode * owner);
+Container * newEmptyContainerByPoints(const Point points[],  QuadThreeNode * owner);
+Container * newEmptyContainerBySide(float side, const Point * center, QuadThreeNode * owner);
 
-QuadThreeNode * newQuadNodeByPoints(const QuadThreeNode * father, const Point points[]);
-QuadThreeNode * newQuadNodeBySide(const QuadThreeNode * father, float side, const Point * center);
+QuadThreeNode * newQuadNodeByPoints(QuadThreeNode * father, const Point points[]);
+QuadThreeNode * newQuadNodeBySide(QuadThreeNode * father, float side, const Point * center);
 
 /* the childrens of the ginven node will be defined, if they aren't */
 void splitQuadNode(QuadThreeNode * node);
 
 /* find container that would */
-Container * findContainerByPoint(const QuadThreeNode * head, const Point * point);
+Container * findContainerByPoint(QuadThreeNode * head, const Point * point);
 
 /* insert index into quadthree */
-void insertParticle(const QuadThreeNode * head, const Point * position, unsigned int indexParticle);
+void insertParticle(QuadThreeNode * head, const Point * position, unsigned int indexParticle);
 
 /* returns a point thats have the positon of the particle given */
 Point * pointFromParticle(const particle_t * particle);
 
 /* apply the function give to all leaf that are in reange by given radius */
-void applyToLeafInRange(const QuadThreeNode * head ,float radius, const particle_t * pivot, void (* toApply)(particle_t *, particle_t *));
+void applyToLeafInRange(const QuadThreeNode * head ,float radius, particle_t * pivot, void (* toApply)(particle_t *, particle_t *));
 
 #endif

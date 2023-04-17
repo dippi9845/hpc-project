@@ -11,6 +11,8 @@ typedef struct {
     float vx, vy;       // velocity
     float fx, fy;       // force
     float rho, p;       // density, pressure
+    float fpress_x, fpress_y;
+    float fvisc_x, fvisc_y;
 } particle_t;
 
 particle_t *particles;

@@ -72,6 +72,7 @@ Container * findContainerByPoint(const QuadThreeNode * head, const Point * point
 /* insert index into quadthree */
 void insertParticle(const QuadThreeNode * head, const Point * position, unsigned int indexParticle);
 
+/* returns a point thats have the positon of the particle given */
 Point * pointFromParticle(const particle_t * particle);
 
 #endif

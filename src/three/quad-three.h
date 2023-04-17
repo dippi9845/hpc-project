@@ -35,8 +35,8 @@ typedef struct {
 /* links the particle index to a container that contains it particle */
 Container ** link;
 
-/* find a container near to the given, for the pointer given*/
-Container * findNearContainerForPoint(const Point * point, const Container * square);
+/* checks if the current container of this particle is still valid, otherwise it will be changed form one near */
+void updateContainerForParticle(unsigned int indexParticle);
 
 /* insert the index into the container */
 void insertIntoContainer(Container * square, unsigned int particleIndex);

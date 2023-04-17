@@ -1,4 +1,5 @@
 #include "quad-three.h"
+#include <assert.h>
 #include <stdlib.h>
 #include <math.h>
 
@@ -8,9 +9,40 @@ Point *newPoint(float x, float y) {
     return rtr;
 }
 
-Container *findNearContainerForPoint(const Point *point, const Container *square) {
-    // TODO: implementare sta roba
-    return NULL;
+void updateContainerForParticle(unsigned int indexParticle) {
+    const Point * parPos = pointFromParticle(particles[indexParticle]);
+    Container * myContainer = link[indexParticle];
+    unsigned int containerIndex;
+
+    for (containerIndex = 0; containerIndex < CONTAINER_CAPACITY; containerIndex++) {
+        if (myContainer->particles[containerIndex] == indexParticle)
+            break;
+    }
+
+    if (!isPointContained(parPos, myContainer)) {
+        QuadThreeNode * validFather = myContainer->owner_node->father;
+
+        while (validFather != NULL && !isPointContained(parPos, &(validFather->square_container))) {
+            validFather = validFather->father;
+        }
+        
+        assert(validFather == NULL); // edge case the head doesn't contains the particles ??
+
+        while (validFather->childrens[0] != NULL)
+        {
+            for (int i = 0; i < CHILDREN_NUM; i++) {
+                const QuadThreeNode * current = validFather->childrens[i];
+
+                if (isPointContained(parPos, &(current->square_container))) {
+                    validFather = current;
+                }
+            }
+        }
+        
+        // una volta trovato il nodo migliore sposta la particella li
+        moveParticle(containerIndex, myContainer, &(validFather->square_container));
+        
+    }
 }
 
 void insertIntoContainer(Container *square, unsigned int particleIndex) {
@@ -34,7 +66,7 @@ void insertIntoContainer(Container *square, unsigned int particleIndex) {
         for (int j = 0; j < CHILDREN_NUM; j++) {
             const QuadThreeNode * current = owner->childrens[j];
 
-            if (isPointContained(parPos, &(owner->square_container))) {
+            if (isPointContained(parPos, &(current->square_container))) {
                 insertIntoContainer(&(current->square_container), particleIndex);
             }
         }
@@ -175,11 +207,11 @@ void splitQuadNode(QuadThreeNode * node) {
         for (int i = 0; i < CONTAINER_CAPACITY; i++) {
             unsigned int particleIndex = from->particles[i];
             Point * parPos = pointFromParticle(particles[particleIndex]);
-            
+
             for (int j = 0; j < CHILDREN_NUM; j++) {
                 const QuadThreeNode * current = node->childrens[j];
 
-                if (isPointContained(parPos, &(node->square_container))) {
+                if (isPointContained(parPos, &(current->square_container))) {
                     moveParticle(i, from, &(current->square_container));
                 }
             }

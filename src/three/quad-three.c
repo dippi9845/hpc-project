@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <math.h>
 
+#define SQRT2 sqrtf(2.f)/2;
+
 Point *newPoint(float x, float y) {
     Point * rtr = (Point *)malloc(sizeof(Point));
     rtr->x = x; rtr->y = y;
@@ -246,4 +248,34 @@ void insertParticle(const QuadThreeNode * head, const Point * position, unsigned
 
 Point * pointFromParticle(const particle_t * particle) {
     return newPoint(particle->x, particle->y);
+}
+
+void applyToParticlesInRange(const QuadThreeNode * head ,float radius, const particle_t * pivot, void (* toApply)(particle_t *, particle_t *)) {
+    const float side = head->square_container.l;
+    const float halfDiagonal = SQRT2 * side;
+    const float maxDistance = halfDiagonal + radius;
+    
+    for (int i = 0; i < CHILDREN_NUM; i++) {
+        const QuadThreeNode * currentNode = head->childrens[i];
+        const Container * currentContainer = &(currentNode->square_container);
+
+        const float deltaX = pivot->x - currentContainer->center.x;
+        const float deltaY = pivot->y - currentContainer->center.y;
+        
+        if (hypotf(deltaX, deltaY) < maxDistance) {
+            if (currentNode->childrens[0] == NULL) {
+
+                // apply function to all childrens
+                for (int j = 0; j < CHILDREN_NUM; j++) {
+                    const unsigned int index = currentContainer->particles[j]; // index of the particle
+                    toApply(pivot, particles + index);
+                }
+            }
+            else {
+                // search for leaf
+                applyToParticlesInRange(currentNode, radius, pivot, toApply);
+            }
+        }
+    }
+
 }

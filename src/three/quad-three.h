@@ -75,4 +75,6 @@ void insertParticle(const QuadThreeNode * head, const Point * position, unsigned
 /* returns a point thats have the positon of the particle given */
 Point * pointFromParticle(const particle_t * particle);
 
+void applyToParticlesInRange(const QuadThreeNode * head ,float radius, const particle_t * pivot, void (* toApply)(particle_t *, particle_t *));
+
 #endif

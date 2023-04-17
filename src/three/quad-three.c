@@ -28,7 +28,7 @@ void updateContainerForParticle(unsigned int indexParticle) {
             validFather = validFather->father;
         }
         
-        assert(validFather == NULL); // edge case the head doesn't contains the particles ??
+        assert(validFather != NULL); // edge case the head doesn't contains the particles ??
 
         while (validFather->childrens[0] != NULL)
         {

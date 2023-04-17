@@ -250,7 +250,7 @@ Point * pointFromParticle(const particle_t * particle) {
     return newPoint(particle->x, particle->y);
 }
 
-void applyToParticlesInRange(const QuadThreeNode * head ,float radius, const particle_t * pivot, void (* toApply)(particle_t *, particle_t *)) {
+void applyToLeafInRange(const QuadThreeNode * head ,float radius, const particle_t * pivot, void (* toApply)(particle_t *, particle_t *)) {
     const float side = head->square_container.l;
     const float halfDiagonal = SQRT2 * side;
     const float maxDistance = halfDiagonal + radius;
@@ -273,7 +273,7 @@ void applyToParticlesInRange(const QuadThreeNode * head ,float radius, const par
             }
             else {
                 // search for leaf
-                applyToParticlesInRange(currentNode, radius, pivot, toApply);
+                applyToLeafInRange(currentNode, radius, pivot, toApply);
             }
         }
     }

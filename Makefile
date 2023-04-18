@@ -16,6 +16,8 @@
 
 CFLAGS+=-std=c99 -Wall -Wpedantic
 LDLIBS=-lm
+FLAGSGL=$(CFLAGS) -DGUI
+LIBGL=$(LDLIBS) -lglut -lGL -lX11
 OPM_FLAG=-fopenmp
 SIMD_FLAG=-march=native -O2 -ftree-vectorize -fopt-info-vec -funsafe-math-optimizations
 STEP_PERF=-D"STEP_PERFORMANCE"
@@ -28,16 +30,20 @@ all: sph omp-simd-SoA cuda-shared sph-quad-three
 
 
 sph-gui: sph
-	gcc $(CFLAGS) -DGUI ${SRC_FOLDER}sph.c $(LDLIBS) -lglut -lGL -lX11 -o ${BIN_FOLDER}sph-gui
+	gcc $(FLAGSGL) ${SRC_FOLDER}sph.c $(LIBGL) -o ${BIN_FOLDER}sph-gui
 
-sph-gui-quad: sph
-	gcc $(CFLAGS) -DGUI ${SRC_FOLDER}sph-quad-three.c ${SRC_FOLDER}particle.h ${SRC_FOLDER}three/quad-three.h ${SRC_FOLDER}three/quad-three.c $(LDLIBS) -lglut -lGL -lX11 -o ${BIN_FOLDER}sph-gui-quad
+sph-gui-quad: ${SRC_FOLDER}three/quad-three.c ${SRC_FOLDER}sph-quad-simd.c
+	gcc $(FLAGSGL) ${SRC_FOLDER}sph-quad-simd.c ${SRC_FOLDER}three/quad-three.c $(LIBGL) $(SIMD_FLAG) -o ${BIN_FOLDER}sph-gui-quad
 
 sph-quad-three: ${SRC_FOLDER}sph-quad-three.c ${SRC_FOLDER}three/quad-three.h ${SRC_FOLDER}three/quad-three.c
-	gcc ${SRC_FOLDER}sph-quad-three.c ${SRC_FOLDER}particle.h ${SRC_FOLDER}three/quad-three.h ${SRC_FOLDER}three/quad-three.c $(CFLAGS) $(LDLIBS) -o ${BIN_FOLDER}sph-quad-three
+	gcc ${SRC_FOLDER}sph-quad-three.c ${SRC_FOLDER}three/quad-three.c $(CFLAGS) $(LDLIBS) -o ${BIN_FOLDER}sph-quad-three
 
 sph-quad-simd: ${SRC_FOLDER}sph-quad-simd.c ${SRC_FOLDER}three/quad-three.c
 	gcc ${SRC_FOLDER}sph-quad-simd.c ${SRC_FOLDER}three/quad-three.c $(CFLAGS) $(LDLIBS) $(SIMD_FLAG) -o ${BIN_FOLDER}sph-quad-simd
+
+sph-quad-omp: ${SRC_FOLDER}sph-quad-omp.c ${SRC_FOLDER}three/quad-three.c
+	gcc ${SRC_FOLDER}sph-quad-omp.c ${SRC_FOLDER}three/quad-three.c $(CFLAGS) $(LDLIBS) $(SIMD_FLAG) $(OPM_FLAG) -pthread -o ${BIN_FOLDER}sph-quad-omp
+
 
 sph: ${SRC_FOLDER}sph.c
 	gcc ${SRC_FOLDER}sph.c $(CFLAGS) $(LDLIBS) -o ${BIN_FOLDER}sph

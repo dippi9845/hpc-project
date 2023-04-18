@@ -29,8 +29,8 @@
  *
  ****************************************************************************/
 #include "hpc.h"
-#include "three/quad-three.h"
 #include "particle.h"
+#include "three/quad-three.h"
 
 #ifdef GUI
 #if __APPLE__
@@ -75,7 +75,7 @@ const int MAX_PARTICLES = 5000;
 
 #else
 
-const int MAX_PARTICLES = 20000;
+const int MAX_PARTICLES = 40000;
 // Larger window size to accommodate more particles
 #define WINDOW_WIDTH 3000
 // #define WINDOW_HEIGHT 2000
@@ -89,8 +89,18 @@ const float VIEW_WIDTH = 1.5 * WINDOW_WIDTH;
 const float VIEW_HEIGHT = 1.5 * WINDOW_HEIGHT;
 
 int n_particles = 0;    // number of currently active particles
+int global_near = 0;
 
 QuadThreeNode * quad_three = NULL; // quad-three used for fiding particles
+
+typedef float v4f __attribute__ ((vector_size (16)));
+#define VLEN (sizeof(v4f) /sizeof(float))
+
+v4f acc_rho = {0.f, 0.f, 0.f, 0.f};
+v4f acc_press_x = {0.f, 0.f, 0.f, 0.f};
+v4f acc_press_y = {0.f, 0.f, 0.f, 0.f};
+v4f acc_visc_x = {0.f, 0.f, 0.f, 0.f};
+v4f acc_visc_y = {0.f, 0.f, 0.f, 0.f};
 
 /**
  * Return a random value in [a, b]
@@ -175,7 +185,13 @@ void accumulate_rho(particle_t* pi, particle_t * pj) {
     const float d2 = dx*dx + dy*dy;
     
     if (d2 < HSQ) {
-        pi->rho += MASS * POLY6 * pow(HSQ - d2, 3.0);
+        acc_rho[global_near] = MASS * POLY6 * pow(HSQ - d2, 3.0);
+        global_near++;
+        
+        if (global_near == VLEN) {
+            pi->rho += acc_rho[0] + acc_rho[1] + acc_rho[2] + acc_rho[3];
+            global_near = 0;
+        }
     }
 }
 
@@ -188,17 +204,28 @@ void compute_density_pressure( void )
        to 2D per "SPH Based Shallow Water Simulation" by Solenthaler
        et al. */
 
+    #pragma omp parallel for schedule(dynamic, 15) default(none) shared(n_particles, particles, quad_three) firstprivate(global_near, acc_rho)
     for (int i=0; i<n_particles; i++) {
         particle_t *pi = &particles[i];
         pi->rho = 0.0;
+        global_near = 0;
+
         // raggio è HSQ
         applyToLeafInRange(quad_three, HSQ, pi, accumulate_rho);
+
+        /* handle remaining */
+        for (int index = 0; index < global_near; index++) {
+            pi->rho += acc_rho[index];
+        }
+
         pi->p = GAS_CONST * (pi->rho - REST_DENS);
     }
 }
 
 
 void accumulate_visc_press(particle_t * pi, particle_t * pj) {
+    
+
     const float SPIKY_GRAD = -10.0 / (M_PI * pow(H, 5));
     const float VISC_LAP = 40.0 / (M_PI * pow(H, 5));
     const float EPS = 1e-6;
@@ -212,11 +239,21 @@ void accumulate_visc_press(particle_t * pi, particle_t * pj) {
         const float norm_dx = dx / dist;
         const float norm_dy = dy / dist;
         // compute pressure force contribution
-        pi->fpress_x += -norm_dx * MASS * (pi->p + pj->p) / (2 * pj->rho) * SPIKY_GRAD * pow(H - dist, 3);
-        pi->fpress_y += -norm_dy * MASS * (pi->p + pj->p) / (2 * pj->rho) * SPIKY_GRAD * pow(H - dist, 3);
+        acc_press_x[global_near] = -norm_dx * MASS * (pi->p + pj->p) / (2 * pj->rho) * SPIKY_GRAD * pow(H - dist, 3);
+        acc_press_y[global_near] = -norm_dy * MASS * (pi->p + pj->p) / (2 * pj->rho) * SPIKY_GRAD * pow(H - dist, 3);
         // compute viscosity force contribution
-        pi->fvisc_x += VISC * MASS * (pj->vx - pi->vx) / pj->rho * VISC_LAP * (H - dist);
-        pi->fvisc_y += VISC * MASS * (pj->vy - pi->vy) / pj->rho * VISC_LAP * (H - dist);
+        acc_visc_x[global_near] = VISC * MASS * (pj->vx - pi->vx) / pj->rho * VISC_LAP * (H - dist);
+        acc_visc_y[global_near]  = VISC * MASS * (pj->vy - pi->vy) / pj->rho * VISC_LAP * (H - dist);
+
+        global_near++;
+
+        if (global_near == VLEN) {
+            global_near = 0;
+            pi->fpress_x += acc_press_x[0] + acc_press_x[1] + acc_press_x[2] + acc_press_x[3];
+            pi->fpress_y += acc_press_y[0] + acc_press_y[1] + acc_press_y[2] + acc_press_y[3];
+            pi->fvisc_x += acc_visc_x[0] + acc_visc_x[1] + acc_visc_x[2] + acc_visc_x[3];
+            pi->fvisc_y += acc_visc_y[0] + acc_visc_y[1] + acc_visc_y[2] + acc_visc_y[3];
+        }
     }
 
 }
@@ -228,19 +265,29 @@ void compute_forces( void )
        to 2D per "SPH Based Shallow Water Simulation" by Solenthaler
        et al. */
     
-
+    //#pragma omp parallel for schedule(dynamic, 15)
     for (int i=0; i<n_particles; i++) {
         particle_t *pi = &particles[i];
         pi->fpress_x = 0.0;
         pi->fpress_y = 0.0;
         pi->fvisc_x = 0.0;
         pi->fvisc_y = 0.0;
+        global_near = 0;
 
         // raggio è H
         applyToLeafInRange(quad_three, H, pi, accumulate_visc_press);
 
         const float fgrav_x = Gx * MASS / pi->rho;
         const float fgrav_y = Gy * MASS / pi->rho;
+        
+        /* handle remaining */
+        for (int index = 0; index < global_near; index++) {
+            pi->fpress_x += acc_press_x[index];
+            pi->fpress_y += acc_press_y[index];
+            pi->fvisc_x += acc_visc_x[index];
+            pi->fvisc_y += acc_visc_y[index];
+        }
+
         pi->fx = pi->fpress_x + pi->fvisc_x + fgrav_x;
         pi->fy = pi->fpress_y + pi->fvisc_y + fgrav_y;
     }

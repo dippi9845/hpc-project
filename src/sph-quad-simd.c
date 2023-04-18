@@ -75,7 +75,7 @@ const int MAX_PARTICLES = 5000;
 
 #else
 
-const int MAX_PARTICLES = 20000;
+const int MAX_PARTICLES = 40000;
 // Larger window size to accommodate more particles
 #define WINDOW_WIDTH 3000
 // #define WINDOW_HEIGHT 2000
@@ -366,6 +366,9 @@ void place_ball( float cx, float cy, float r )
                 const float jitterx = rand() / (float)RAND_MAX;
                 const float jittery = rand() / (float)RAND_MAX;
                 init_particle(particles + n_particles, x+jitterx, y+jittery);
+                Point * pos = pointFromParticle(particles + n_particles);
+                insertParticle(quad_three, pos, n_particles);
+                free(pos);
                 n_particles++;
             }
         }

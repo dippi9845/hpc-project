@@ -11,17 +11,17 @@
             "args": "2000 100"
         },
         {
-            "name": "(gdb) Debug sph-simd",
+            "name": "(gdb) Debug sph-quad-three",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/bin/sph-simd",
-            "args": ["20000"],
+            "program": "${workspaceFolder}/bin/sph-quad-three",
+            "args": ["1", "1"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],
             "externalConsole": false,
             "MIMode": "gdb",
-            "preLaunchTask": "make-simd"
+            "preLaunchTask": "make-sph-quad-three"
         },
         {
             "name": "(gdb) Debug sph-omp-simd",
@@ -35,6 +35,31 @@
             "externalConsole": false,
             "MIMode": "gdb",
             "preLaunchTask": "make-omp-simd"
+        },
+        {
+            "name": "(gdb) Debug sph",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/bin/sph",
+            "args": ["1", "1"],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb"
+        },
+        {
+            "name": "(gdb) Debug sph-gui-quad",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/bin/sph-gui-quad",
+            "args": ["20000"],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "preLaunchTask": "make-sph-gui-quad"
         }
     ]
 }

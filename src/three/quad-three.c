@@ -2,6 +2,7 @@
 #include "../particle.h"
 
 #include <assert.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
 
@@ -13,7 +14,7 @@ Point *newPoint(float x, float y) {
     return rtr;
 }
 
-void updateContainerForParticle(unsigned int indexParticle) {
+void updateContainerForParticle(QuadThreeNode * head, unsigned int indexParticle) {
     Point * parPos = pointFromParticle(particles + indexParticle);
     Container * myContainer = link[indexParticle];
     unsigned int containerIndex;
@@ -24,13 +25,26 @@ void updateContainerForParticle(unsigned int indexParticle) {
     }
 
     if (!isPointContained(parPos, myContainer)) {
+        /*
+        
+        // metodo ottimizzato: vado in alto fino a trovare un padre che mi contiene poi scendo fino alla foglia
+        
         QuadThreeNode * validFather = myContainer->owner_node->father;
 
-        while (validFather != NULL && !isPointContained(parPos, &(validFather->square_container))) {
-            validFather = validFather->father;
+        if (validFather == NULL) {
+            // means that there is only one node that is the owner
+            validFather = myContainer->owner_node;
         }
-        
-        assert(validFather != NULL); // edge case the head doesn't contains the particles ??
+        else {
+            // otherwise seek back for a suitable
+            while (validFather != NULL && !isPointContained(parPos, &(validFather->square_container))) {
+                validFather = validFather->father;
+            }
+            
+            assert(validFather != NULL); // edge case the head doesn't contains the particles ??
+
+        }
+
 
         while (validFather->childrens[0] != NULL)
         {
@@ -42,29 +56,35 @@ void updateContainerForParticle(unsigned int indexParticle) {
                 }
             }
         }
-        
+
         // una volta trovato il nodo migliore sposta la particella li
         moveParticle(containerIndex, myContainer, &(validFather->square_container));
-        
+
+        */
+
+
+        // ricerca dall'alto -> leggermente più lenta
+        Container * new = findContainerByPoint(head, parPos);
+        moveParticle(containerIndex, myContainer, new);
     }
     free(parPos);
 }
 
-void insertIntoContainer(Container *square, unsigned int particleIndex) {
+void insertIntoContainer(Container *square, unsigned int vale_to_move) {
     short int insered = 0; 
 
     for (int i = 0; i < CONTAINER_CAPACITY; i++) {
         if (square->particles[i] == EMPTY_INDEX) {
             insered = 1;
-            square->particles[i] = particleIndex;
-            link[particleIndex] = square;
+            square->particles[i] = vale_to_move;
+            link[vale_to_move] = square;
             break;
         }
     }
 
     if (!insered) {
         // split
-        Point * parPos = pointFromParticle(particles + particleIndex);
+        Point * parPos = pointFromParticle(particles + vale_to_move);
         QuadThreeNode * owner = square->owner_node;
         splitQuadNode(owner);
 
@@ -72,7 +92,7 @@ void insertIntoContainer(Container *square, unsigned int particleIndex) {
             QuadThreeNode * current = owner->childrens[j];
 
             if (isPointContained(parPos, &(current->square_container))) {
-                insertIntoContainer(&(current->square_container), particleIndex);
+                insertIntoContainer(&(current->square_container), vale_to_move);
             }
         }
         free(parPos);
@@ -80,10 +100,9 @@ void insertIntoContainer(Container *square, unsigned int particleIndex) {
 }
 
 void moveParticle(unsigned int particleIndex, Container *from, Container *to) {
-    unsigned int particle = from->particles[particleIndex];
+    unsigned int value_to_move = from->particles[particleIndex];
     from->particles[particleIndex] = EMPTY_INDEX;
-    link[particleIndex] = to;
-    insertIntoContainer(to, particle);
+    insertIntoContainer(to, value_to_move);
 }
 
 int isPointContained(const Point * point, const Container * square) {
@@ -257,31 +276,37 @@ Point * pointFromParticle(const particle_t * particle) {
 }
 
 void applyToLeafInRange(const QuadThreeNode * head ,float radius, particle_t * pivot, void (* toApply)(particle_t *, particle_t *)) {
-    const float side = head->square_container.l;
-    const float halfDiagonal = side * SQRT2;
-    const float maxDistance = halfDiagonal + radius;
-    
-    for (int i = 0; i < CHILDREN_NUM; i++) {
-        const QuadThreeNode * currentNode = head->childrens[i];
-        const Container * currentContainer = &(currentNode->square_container);
-
-        const float deltaX = pivot->x - currentContainer->center.x;
-        const float deltaY = pivot->y - currentContainer->center.y;
-        
-        if (hypotf(deltaX, deltaY) < maxDistance) {
-            if (currentNode->childrens[0] == NULL) {
-
-                // apply function to all childrens
-                for (int j = 0; j < CHILDREN_NUM; j++) {
-                    const unsigned int index = currentContainer->particles[j]; // index of the particle
-                    toApply(pivot, particles + index);
-                }
-            }
-            else {
-                // search for leaf
-                applyToLeafInRange(currentNode, radius, pivot, toApply);
+    if (head->childrens[0] == NULL) {
+        // head is a leaf
+        // apply function to all particle of this leaf
+        for (int j = 0; j < CONTAINER_CAPACITY; j++) {
+            const unsigned int index = head->square_container.particles[j];
+            
+            if (index != EMPTY_INDEX) {
+                toApply(pivot, particles + index);
             }
         }
     }
 
+    else {
+        // else is not a leaf, so search for
+        const float side = head->square_container.l;
+        const float halfDiagonal = side * SQRT2;
+        const float maxDistance = halfDiagonal + radius;
+        
+        for (int i = 0; i < CHILDREN_NUM; i++) {
+            const QuadThreeNode * currentNode = head->childrens[i];
+            const Container * currentContainer = &(currentNode->square_container);
+
+            const float deltaX = pivot->x - currentContainer->center.x;
+            const float deltaY = pivot->y - currentContainer->center.y;
+            
+            if (hypotf(deltaX, deltaY) < maxDistance) {
+                // search for leaf
+                applyToLeafInRange(currentNode, radius, pivot, toApply);
+
+            }
+        }
+    }
+    
 }

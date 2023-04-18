@@ -35,9 +35,6 @@ typedef struct {
 /* links the particle index to a container that contains it particle */
 Container ** link;
 
-/* checks if the current container of this particle is still valid, otherwise it will be changed form one near */
-void updateContainerForParticle(unsigned int indexParticle);
-
 /* insert the index into the container */
 void insertIntoContainer(Container * square, unsigned int particleIndex);
 
@@ -56,6 +53,8 @@ typedef struct QuadThreeNode {
     Container square_container;
 } QuadThreeNode;
 
+/* checks if the current container of this particle is still valid, otherwise it will be changed form one near */
+void updateContainerForParticle(QuadThreeNode * head, unsigned int indexParticle);
 
 Container * newEmptyContainerByPoints(const Point points[],  QuadThreeNode * owner);
 Container * newEmptyContainerBySide(float side, const Point * center, QuadThreeNode * owner);

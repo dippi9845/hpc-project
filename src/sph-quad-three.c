@@ -71,6 +71,7 @@ const float BOUND_DAMPING = -0.5;
 const int MAX_PARTICLES = 5000;
 #define WINDOW_WIDTH 1024
 // #define WINDOW_HEIGHT 768
+#define WINDOW_HEIGHT WINDOW_WIDTH
 
 #else
 
@@ -139,7 +140,7 @@ int is_in_domain( float x, float y )
 void init_sph( int n )
 {
     n_particles = 0;
-    printf("Initializing with %d particles\n", n);
+    //printf("Initializing with %d particles\n", n);
 
     for (float y = EPS; y < VIEW_HEIGHT - EPS; y += H) {
         for (float x = EPS; x <= VIEW_WIDTH * 0.8f; x += H) {
@@ -159,7 +160,6 @@ void init_sph( int n )
     }
     assert(n_particles == n);
 
-    printf("Initialized\n");
 }
 
 /**
@@ -174,7 +174,7 @@ void accumulate_rho(particle_t* pi, particle_t * pj) {
     const float dy = pj->y - pi->y;
     const float d2 = dx*dx + dy*dy;
     
-    if (d2 < HSQ && pi != pj) {
+    if (d2 < HSQ) {
         pi->rho += MASS * POLY6 * pow(HSQ - d2, 3.0);
     }
 }
@@ -193,7 +193,6 @@ void compute_density_pressure( void )
         pi->rho = 0.0;
         // raggio è HSQ
         applyToLeafInRange(quad_three, HSQ, pi, accumulate_rho);
-
         pi->p = GAS_CONST * (pi->rho - REST_DENS);
     }
 }
@@ -275,7 +274,7 @@ void integrate( void )
             p->y = VIEW_HEIGHT - EPS;
         }
 
-        updateContainerForParticle(i);
+        updateContainerForParticle(quad_three, i);
     }
 }
 
@@ -393,8 +392,8 @@ int main(int argc, char **argv)
 
     particles = (particle_t*)malloc(MAX_PARTICLES * sizeof(*particles));
     link = (Container **) malloc(MAX_PARTICLES * sizeof(Container *));
-    Point * center = newPoint(WINDOW_WIDTH / 2.f, WINDOW_HEIGHT / 2.f);
-    quad_three = newQuadNodeBySide(NULL, WINDOW_HEIGHT, center);
+    Point * center = newPoint(VIEW_WIDTH / 2.f, VIEW_HEIGHT / 2.f);
+    quad_three = newQuadNodeBySide(NULL, VIEW_WIDTH, center);
     free(center); // no more useful
 
     assert( particles != NULL );
@@ -438,6 +437,9 @@ int main(int argc, char **argv)
     }
     
     init_sph(n);
+
+    //printf("Initialized\n");
+    assert( quad_three != NULL );
 
     for (int s=0; s<nsteps; s++) {
 

@@ -37,7 +37,18 @@
             "label": "make-cuda",
             "type": "shell",
             "command": "make cuda-dbg",
+        },
+        {
+            "label": "make-sph-quad-three",
+            "type": "shell",
+            "command": "make sph-quad-three",
+        },
+        {
+            "label": "make-sph-gui-quad",
+            "type": "shell",
+            "command": "make sph-gui-quad",
         }
+        
     ],
     "version": "2.0.0"
 }

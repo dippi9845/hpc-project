@@ -1,6 +1,7 @@
 {
     "files.associations": {
         "cmath": "cpp",
-        "quad-three.h": "c"
+        "quad-three.h": "c",
+        "particle_simd.h": "c"
     }
 }
